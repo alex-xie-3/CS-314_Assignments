@@ -1,18 +1,18 @@
 /*  Student information for assignment:
  *
- *  On <MY|OUR> honor, <NAME1> and <NAME2), this programming assignment is <MY|OUR> own work
- *  and <I|WE> have not provided this code to any other student.
+ *  On OUR honor, Alex Xie and Kevin Nguyen, this programming assignment is OUR own work
+ *  and WE have not provided this code to any other student.
  *
- *  Number of slip days used:
+ *  Number of slip days used: 0
  *
  *  Student 1 (Student whose Canvas account is being used)
- *  UTEID:
- *  email address:
- *  Grader name:
+ *  UTEID: ayx72
+ *  email address: alex.xie@utexas.edu
+ *  Grader name: Eliza Bidwell
  *
  *  Student 2
- *  UTEID:
- *  email address:
+ *  UTEID: kmn2562
+ *  email address: kevinnguyen4221@gmail.com
  *
  */
 
