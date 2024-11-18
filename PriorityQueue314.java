@@ -13,7 +13,7 @@ public class PriorityQueue314<E extends Comparable<? super E>> {
             pos++;
         }
         myCon.add(pos, item);
-        return true;
+        return true; //bruh
     }
 
     // Helper method 
