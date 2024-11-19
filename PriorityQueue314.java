@@ -12,8 +12,8 @@ public class PriorityQueue314<E extends Comparable<? super E>> {
         while (pos < myCon.size() && myCon.get(pos).getFrequency() == item.getFrequency()) {
             pos++;
         }
-        myCon.add(pos, item); // HAHAHAA
-        return true; //bruh
+        myCon.add(pos, item);
+        return true; 
     }
 
     // Helper method 
