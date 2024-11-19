@@ -56,6 +56,7 @@ public class PriorityQueue314<E extends Comparable<? super E>> {
         if (size() == 0) {
             throw new NoSuchElementException("Priority queue is empty");
         }
+        
         return myCon.remove(0);
     }
 

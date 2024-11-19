@@ -41,7 +41,7 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * magic number, the header format number, the header to
      * reproduce the tree, AND the actual data.
      * @throws IOException if an error occurs while reading from the input file.
-     */
+    */
     public int preprocessCompress(InputStream in, int headerFormat) throws IOException {
         BitInputStream bits = new BitInputStream(in);
         int inbits = bits.readBits(IHuffConstants.BITS_PER_WORD);
@@ -67,9 +67,8 @@ public class SimpleHuffProcessor implements IHuffProcessor {
 
         // tracks root
         TreeNode root = null;
-
         // coding tree creation
-        while (!pq.isEmpty()) {
+        while (pq.size() >= 2) {
             // dequeue 2 highest priority (lowest frequency) TreeNodes
             TreeNode temp1 = pq.dequeue();
             TreeNode temp2 = pq.dequeue();
@@ -84,6 +83,9 @@ public class SimpleHuffProcessor implements IHuffProcessor {
         // creates code map
         HashMap<Integer, String> codeMap = new HashMap<>();
         inOrderTraversal(root, "", codeMap);
+        System.out.println(codeMap);
+
+        
 
         showString("Not working yet");
         myViewer.update("Still not working");
@@ -96,10 +98,14 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * binary search tree, adding leaf nodes to coding map. 
      */
     private void inOrderTraversal(TreeNode root, String path, HashMap<Integer, String> map) {
-        inOrderTraversal(root.getLeft(), path + "0", map);
-        map.put(root.getValue(), path);
-        path = "";
-        inOrderTraversal(root.getRight(), path + "1", map);
+        if (root != null)
+        {
+           inOrderTraversal(root.getLeft(), path + "0", map);
+            map.put(root.getValue(), path);
+            path = "";
+            inOrderTraversal(root.getRight(), path + "1", map); 
+        }
+        
     }
 
     /**
