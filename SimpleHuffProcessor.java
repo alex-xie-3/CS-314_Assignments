@@ -43,10 +43,11 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * @throws IOException if an error occurs while reading from the input file.
      */
     public int preprocessCompress(InputStream in, int headerFormat) throws IOException {
-        BitInputStream bits = new BitInputStream(in); // wrap the input stream I am given in a bit input stream
+        BitInputStream bits = new BitInputStream(in);
         int inbits = bits.readBits(IHuffConstants.BITS_PER_WORD);
         HashMap<Integer, Integer> freqs = new HashMap<>();
 
+        // puts char frequencies into map
         while (inbits != -1) {
             inbits =  bits.readBits(IHuffConstants.BITS_PER_WORD);
             if (!freqs.containsKey(inbits)) {
@@ -57,16 +58,48 @@ public class SimpleHuffProcessor implements IHuffProcessor {
         }
         bits.close();
 
+        // enqueues all chars into priority queue
         PriorityQueue314<TreeNode> pq = new PriorityQueue314<>();
         for (Integer i : freqs.keySet()) {
             TreeNode temp = new TreeNode(i, freqs.get(i));
-            pq.add(temp);
+            pq.enqueue(temp);
         }
+
+        // tracks root
+        TreeNode root = null;
+
+        // coding tree creation
+        while (!pq.isEmpty()) {
+            // dequeue 2 highest priority (lowest frequency) TreeNodes
+            TreeNode temp1 = pq.dequeue();
+            TreeNode temp2 = pq.dequeue();
+            // -1 is placeholder value
+            root = new TreeNode(-1, temp1.getFrequency() + temp2.getFrequency());
+            root.setLeft(temp1);
+            root.setRight(temp2);
+            // add internal node
+            pq.enqueue(root);
+        }
+
+        // creates code map
+        HashMap<Integer, String> codeMap = new HashMap<>();
+        inOrderTraversal(root, "", codeMap);
 
         showString("Not working yet");
         myViewer.update("Still not working");
         throw new IOException("preprocess not implemented");
         //return 0;
+    }
+
+    /**
+     * Helper method for preprocessComplete. Performs an in-order traversal for 
+     * binary search tree, adding leaf nodes to coding map. 
+     */
+    private void inOrderTraversal(TreeNode root, String path, HashMap<Integer, String> map) {
+        inOrderTraversal(root.getLeft(), path + "0", map);
+        map.put(root.getValue(), path);
+        path = "";
+        inOrderTraversal(root.getRight(), path + "1", map);
     }
 
     /**
