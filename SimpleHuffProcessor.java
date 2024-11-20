@@ -80,12 +80,13 @@ public class SimpleHuffProcessor implements IHuffProcessor {
             pq.enqueue(root);
         }
 
+        // add psuedo EOF value to priority queue
+        //pq.enqueue(new TreeNode(PSEUDO_EOF, 1));
+
         // creates code map
         HashMap<Integer, String> codeMap = new HashMap<>();
         inOrderTraversal(root, "", codeMap);
         System.out.println(codeMap);
-
-        
 
         showString("Not working yet");
         myViewer.update("Still not working");
@@ -100,7 +101,7 @@ public class SimpleHuffProcessor implements IHuffProcessor {
     private void inOrderTraversal(TreeNode root, String path, HashMap<Integer, String> map) {
         if (root != null)
         {
-           inOrderTraversal(root.getLeft(), path + "0", map);
+            inOrderTraversal(root.getLeft(), path + "0", map);
             map.put(root.getValue(), path);
             path = "";
             inOrderTraversal(root.getRight(), path + "1", map); 
@@ -123,6 +124,7 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * writing to the output file.
      */
     public int compress(InputStream in, OutputStream out, boolean force) throws IOException {
+
         throw new IOException("compress is not implemented");
         //return 0;
     }
