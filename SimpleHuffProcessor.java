@@ -44,22 +44,55 @@ public class SimpleHuffProcessor implements IHuffProcessor {
     */
     public int preprocessCompress(InputStream in, int headerFormat) throws IOException {
         BitInputStream bits = new BitInputStream(in);
-        int inbits = bits.readBits(IHuffConstants.BITS_PER_WORD);
+        int inbits = bits.readBits(1);
         HashMap<Integer, Integer> freqs = new HashMap<>();
+        int ogSize = countFreqs(bits, inbits, freqs);        
+        bits.close();
 
-        // puts char frequencies into map
+        // enqueues all chars into priority queue
+        PriorityQueue314<TreeNode> pq = new PriorityQueue314<>();
+        TreeNode root = buildCodingTree(pq, freqs);
+
+        // creates code map
+        HashMap<Integer, String> codeMap = new HashMap<>();
+        inOrderTraversal(root, "", codeMap);
+        System.out.println(codeMap);
+
+        // calculate return value
+        int compSize = 0;
+        for (Integer val : freqs.keySet()) {
+            compSize += codeMap.get(val).length() * freqs.get(val);
+        }
+        return ogSize - compSize;
+        // showString("Not working yet");
+        // myViewer.update("Still not working");
+        // throw new IOException("preprocess not implemented");
+    }
+
+    /**
+     * Helper method for preprocessComplete. Counts frequencies for each char and stores in
+     * a HashMap passed by reference.
+     */
+    private int countFreqs(BitInputStream bits, int inbits, 
+                                            HashMap<Integer,Integer> freqs) throws IOException {
+        int ogSize = 0;
         while (inbits != -1) {
-            inbits =  bits.readBits(IHuffConstants.BITS_PER_WORD);
+            inbits = bits.readBits(IHuffConstants.BITS_PER_WORD);
             if (!freqs.containsKey(inbits)) {
                 freqs.put(inbits, 1);
             } else {
                 freqs.put(inbits, freqs.get(inbits) + 1);
             }
+            ogSize++;
         }
-        bits.close();
+        return ogSize;
+    }
 
-        // enqueues all chars into priority queue
-        PriorityQueue314<TreeNode> pq = new PriorityQueue314<>();
+    /**
+     * Helper method for preprocessComplete. Iteratively creates the coding tree using
+     * Huffman encoding.
+     */
+    private TreeNode buildCodingTree(PriorityQueue314<TreeNode> pq, HashMap<Integer, Integer> freqs) {
         for (Integer i : freqs.keySet()) {
             TreeNode temp = new TreeNode(i, freqs.get(i));
             pq.enqueue(temp);
@@ -81,26 +114,17 @@ public class SimpleHuffProcessor implements IHuffProcessor {
         }
 
         // add psuedo EOF value to priority queue
-        //pq.enqueue(new TreeNode(PSEUDO_EOF, 1));
-
-        // creates code map
-        HashMap<Integer, String> codeMap = new HashMap<>();
-        inOrderTraversal(root, "", codeMap);
-        System.out.println(codeMap);
-
-        showString("Not working yet");
-        myViewer.update("Still not working");
-        throw new IOException("preprocess not implemented");
-        //return 0;
+        // TODO
+        pq.enqueue(new TreeNode(PSEUDO_EOF, 1));
+        return root;
     }
 
     /**
-     * Helper method for preprocessComplete. Performs an in-order traversal for 
+     * Helper method for buildCodingTree. Recursively performs an in-order traversal for 
      * binary search tree, adding leaf nodes to coding map. 
      */
     private void inOrderTraversal(TreeNode root, String path, HashMap<Integer, String> map) {
-        if (root != null)
-        {
+        if (root != null)  {
             inOrderTraversal(root.getLeft(), path + "0", map);
             map.put(root.getValue(), path);
             path = "";
@@ -124,7 +148,20 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * writing to the output file.
      */
     public int compress(InputStream in, OutputStream out, boolean force) throws IOException {
+        BitInputStream inBits = new BitInputStream(in);
+        BitOutputStream outBits = new BitOutputStream(out);
+        outBits.writeBits(BITS_PER_INT, MAGIC_NUMBER);
+        int magic = inBits.readBits(BITS_PER_INT);
+        if (magic != MAGIC_NUMBER) {
+            myViewer.showError("Error reading compressed file. \n" +
+                    "File did not start with the huff magic number.");
+            inBits.close();
+            outBits.close();
+            return -1;
+        }
 
+        inBits.close();
+        outBits.close();
         throw new IOException("compress is not implemented");
         //return 0;
     }
