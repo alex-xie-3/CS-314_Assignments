@@ -24,6 +24,7 @@ import java.util.HashMap;
 public class SimpleHuffProcessor implements IHuffProcessor {
 
     private IHuffViewer myViewer;
+    private HashMap<Integer, String> codeMap;
 
     /**
      * Preprocess data so that compression is possible ---
@@ -44,7 +45,7 @@ public class SimpleHuffProcessor implements IHuffProcessor {
     */
     public int preprocessCompress(InputStream in, int headerFormat) throws IOException {
         BitInputStream bits = new BitInputStream(in);
-        int inbits = bits.readBits(1);
+        int inbits = bits.readBits(BITS_PER_WORD);
         HashMap<Integer, Integer> freqs = new HashMap<>();
         int ogSize = countFreqs(bits, inbits, freqs);        
         bits.close();
@@ -54,7 +55,7 @@ public class SimpleHuffProcessor implements IHuffProcessor {
         TreeNode root = buildCodingTree(pq, freqs);
 
         // creates code map
-        HashMap<Integer, String> codeMap = new HashMap<>();
+        codeMap = new HashMap<>();
         inOrderTraversal(root, "", codeMap);
         System.out.println(codeMap);
 
@@ -75,7 +76,7 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      */
     private int countFreqs(BitInputStream bits, int inbits, 
                                             HashMap<Integer,Integer> freqs) throws IOException {
-        int ogSize = 0;
+        int size = 0;
         while (inbits != -1) {
             inbits = bits.readBits(IHuffConstants.BITS_PER_WORD);
             if (!freqs.containsKey(inbits)) {
@@ -83,9 +84,9 @@ public class SimpleHuffProcessor implements IHuffProcessor {
             } else {
                 freqs.put(inbits, freqs.get(inbits) + 1);
             }
-            ogSize++;
+            size += BITS_PER_WORD;
         }
-        return ogSize;
+        return size;
     }
 
     /**
@@ -106,9 +107,7 @@ public class SimpleHuffProcessor implements IHuffProcessor {
             TreeNode temp1 = pq.dequeue();
             TreeNode temp2 = pq.dequeue();
             // -1 is placeholder value
-            root = new TreeNode(-1, temp1.getFrequency() + temp2.getFrequency());
-            root.setLeft(temp1);
-            root.setRight(temp2);
+            root = new TreeNode(temp1, -1, temp2);
             // add internal node
             pq.enqueue(root);
         }
@@ -127,7 +126,6 @@ public class SimpleHuffProcessor implements IHuffProcessor {
         if (root != null)  {
             inOrderTraversal(root.getLeft(), path + "0", map);
             map.put(root.getValue(), path);
-            path = "";
             inOrderTraversal(root.getRight(), path + "1", map); 
         }
         
