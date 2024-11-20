@@ -26,24 +26,22 @@ public class PriorityQueue314<E extends Comparable<? super E>> {
     }
 
     /**
-     * Helper method for enqueue. Performs binary search to find an
+     * Helper method for enqueue. Performs LINEAR search to find an
      * item in the priority queue.
      */
     private int findPos(ArrayList<TreeNode> arr, TreeNode item) {
-        int low = 0;
-        int high = arr.size() - 1;
-        while (low < high) {
-            int mid = low + (high - low) / 2;
-            if (arr.get(mid).getFrequency() > item.getFrequency()) {
-                high = mid - 1;
-            } else {
-                low = mid + 1;
+        for (int i = 0; i < arr.size(); i++)
+        {
+            TreeNode node = arr.get(i);
+            // only insert at i if we know the node frequency is greater than item freq.
+            // This is to do the tie breaker.
+            // TODO: compareTo
+            if (node.getFrequency() > item.getFrequency())
+            {
+                return i;
             }
         }
-        while (low < myCon.size() && myCon.get(low).getFrequency() <= item.getFrequency()) {
-            low++;
-        }
-        return low;
+        return arr.size();
     }
 
     /**
@@ -63,7 +61,7 @@ public class PriorityQueue314<E extends Comparable<? super E>> {
     /**
      * Returns size of PriorityQueue314.
      * @return size of myCon
-     */
+    */
     public int size() {
         return myCon.size();
     }
@@ -74,5 +72,10 @@ public class PriorityQueue314<E extends Comparable<? super E>> {
      */
     public boolean isEmpty() {
         return myCon.size() == 0;
+    }
+
+    public String toString()
+    {
+        return myCon.toString();
     }
 }

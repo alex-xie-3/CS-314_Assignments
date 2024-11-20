@@ -14,7 +14,7 @@
  *  UTEID: kmn2562
  *  email address: kevinnguyen4221@gmail.com
  *
- */
+*/
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,7 +45,6 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * @throws IOException if an error occurs while reading from the input file.
     */
     public int preprocessCompress(InputStream in, int headerFormat) throws IOException {
-        myViewer = new GUIHuffViewer("Huff info");
         BitInputStream bits = new BitInputStream(in);
         int inbits = bits.readBits(BITS_PER_WORD);
         // HashMap maps inbits to frequency
@@ -65,17 +64,20 @@ public class SimpleHuffProcessor implements IHuffProcessor {
         inOrderTraversal(root, "", codeMap);
         System.out.println(codeMap);
 
+
         // calculate return value
         int compSize = 0;
         for (Integer val : freqs.keySet()) {
             compSize += codeMap.get(val).length() * freqs.get(val);
         }
+
         int diff = ogSize - compSize;
         if (diff < 0) {
             myViewer.showError("Compressed file has " + diff + " more bits than uncompressed " +
             "file.\n Select \"force\" compresssion option to compress.");
         }
-        return ogSize - compSize;
+        System.out.println("bruh");
+        return diff;
         // showString("Not working yet");
         // myViewer.update("Still not working");
         // throw new IOException("preprocess not implemented");
@@ -109,20 +111,22 @@ public class SimpleHuffProcessor implements IHuffProcessor {
         for (Integer i : freqs.keySet()) {
             pq.enqueue(new TreeNode(i, freqs.get(i)));
         }
-
+        System.out.println(pq.toString());
         // tracks root
-        TreeNode root = null;
+        TreeNode node = null;
         // coding tree creation
         while (pq.size() >= 2) {
             // dequeue 2 highest priority (lowest frequency) TreeNodes
             TreeNode temp1 = pq.dequeue();
             TreeNode temp2 = pq.dequeue();
             // -1 is placeholder value
-            root = new TreeNode(temp1, -1, temp2);
+            node = new TreeNode(temp1, -1, temp2);
             // add internal node
-            pq.enqueue(root);
+            pq.enqueue(node);
         }
-        return root;
+
+
+        return node;
     }
 
     /**
