@@ -19,11 +19,8 @@ public class PriorityQueue314<E extends Comparable<? super E>> {
         if (item == null) {
             throw new IllegalArgumentException("Item cannot be null");
         }
-        int pos = binarySearch(myCon, item);
+        int pos = findPos(myCon, item);
         // traverse to last matching freq element
-        while (pos < myCon.size() && myCon.get(pos).getFrequency() == item.getFrequency()) {
-            pos++;
-        }
         myCon.add(pos, item);
         return true;
     }
@@ -32,7 +29,7 @@ public class PriorityQueue314<E extends Comparable<? super E>> {
      * Helper method for enqueue. Performs binary search to find an
      * item in the priority queue.
      */
-    private int binarySearch(ArrayList<TreeNode> arr, TreeNode item) {
+    private int findPos(ArrayList<TreeNode> arr, TreeNode item) {
         int low = 0;
         int high = arr.size() - 1;
         while (low < high) {
@@ -42,6 +39,9 @@ public class PriorityQueue314<E extends Comparable<? super E>> {
             } else {
                 low = mid + 1;
             }
+        }
+        while (low < myCon.size() && myCon.get(low).getFrequency() <= item.getFrequency()) {
+            low++;
         }
         return low;
     }
