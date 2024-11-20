@@ -26,6 +26,8 @@ public class SimpleHuffProcessor implements IHuffProcessor {
 
     private IHuffViewer myViewer;
     private TreeMap<Integer, String> codeMap;
+    private TreeNode treeMap;
+    private int HEADER;
 
     /**
      * Preprocess data so that compression is possible ---
@@ -45,10 +47,13 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * @throws IOException if an error occurs while reading from the input file.
     */
     public int preprocessCompress(InputStream in, int headerFormat) throws IOException {
+        // initializes header
+        HEADER = headerFormat;
+
         BitInputStream bits = new BitInputStream(in);
         int inbits = bits.readBits(BITS_PER_WORD);
         // HashMap maps inbits to frequency
-        HashMap<Integer, Integer> freqs = new HashMap<>();
+        TreeMap<Integer, Integer> freqs = new TreeMap<>();
         int ogSize = countFreqs(bits, inbits, freqs);
         // add psuedo EOF value to priority queue
         freqs.put(PSEUDO_EOF, 1);        
@@ -57,13 +62,12 @@ public class SimpleHuffProcessor implements IHuffProcessor {
 
         // enqueues all chars into priority queue
         PriorityQueue314<TreeNode> pq = new PriorityQueue314<>();
-        TreeNode root = buildCodingTree(pq, freqs);
+        treeMap = buildCodingTree(pq, freqs);
 
-        // creates code map
+        // intializes code map
         codeMap = new TreeMap<>();
-        inOrderTraversal(root, "", codeMap);
+        inOrderTraversal(treeMap, "", codeMap);
         System.out.println(codeMap);
-
 
         // calculate return value
         int compSize = 0;
@@ -76,7 +80,7 @@ public class SimpleHuffProcessor implements IHuffProcessor {
             myViewer.showError("Compressed file has " + diff + " more bits than uncompressed " +
             "file.\n Select \"force\" compresssion option to compress.");
         }
-        System.out.println("bruh");
+
         return diff;
         // showString("Not working yet");
         // myViewer.update("Still not working");
@@ -88,16 +92,16 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * a HashMap passed by reference.
      */
     private int countFreqs(BitInputStream bits, int inbits, 
-                                            HashMap<Integer,Integer> freqs) throws IOException {
+                                            TreeMap<Integer,Integer> freqs) throws IOException {
         int size = 0;
         while (inbits != -1) {
-            inbits = bits.readBits(IHuffConstants.BITS_PER_WORD);
             if (!freqs.containsKey(inbits)) {
                 freqs.put(inbits, 1);
             } else {
                 freqs.put(inbits, freqs.get(inbits) + 1);
             }
             size += BITS_PER_WORD;
+            inbits = bits.readBits(IHuffConstants.BITS_PER_WORD);
         }
         return size;
     }
@@ -106,7 +110,7 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * Helper method for preprocessComplete. Iteratively creates the coding tree using
      * Huffman encoding.
      */
-    private TreeNode buildCodingTree(PriorityQueue314<TreeNode> pq, HashMap<Integer, Integer> freqs) {
+    private TreeNode buildCodingTree(PriorityQueue314<TreeNode> pq, TreeMap<Integer, Integer> freqs) {
         // enqueue all elements into priority queue
         for (Integer i : freqs.keySet()) {
             pq.enqueue(new TreeNode(i, freqs.get(i)));
@@ -124,8 +128,6 @@ public class SimpleHuffProcessor implements IHuffProcessor {
             // add internal node
             pq.enqueue(node);
         }
-
-
         return node;
     }
 
@@ -140,8 +142,7 @@ public class SimpleHuffProcessor implements IHuffProcessor {
                 map.put(root.getValue(), path);
             }
             inOrderTraversal(root.getRight(), path + "1", map); 
-        }
-        
+        }   
     }
 
     /**
@@ -159,21 +160,28 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * writing to the output file.
      */
     public int compress(InputStream in, OutputStream out, boolean force) throws IOException {
-        BitInputStream inBits = new BitInputStream(in);
-        BitOutputStream outBits = new BitOutputStream(out);
-        outBits.writeBits(BITS_PER_INT, MAGIC_NUMBER);
-        int magic = inBits.readBits(BITS_PER_INT);
+        BitInputStream inStream = new BitInputStream(in);
+        BitOutputStream outStream = new BitOutputStream(out);
+        outStream.writeBits(BITS_PER_INT, MAGIC_NUMBER);
+        outStream.writeBits(BITS_PER_INT, HEADER);
+        int magic = inStream.readBits(BITS_PER_INT);
         if (magic != MAGIC_NUMBER) {
             myViewer.showError("Error reading compressed file. \n" +
                     "File did not start with the huff magic number.");
-            inBits.close();
-            outBits.close();
+            inStream.close();
+            outStream.close();
             return -1;
         }
-
-        inBits.close();
-        outBits.close();
-        throw new IOException("compress is not implemented");
+        int totalBits = 0;
+        int inbits = inStream.readBits(BITS_PER_WORD);
+        while (inbits != -1) {
+            outStream.writeBits(codeMap.get(inbits).length(), Integer.parseInt(codeMap.get(inbits)));
+            totalBits += codeMap.get(inbits).length();
+        }
+        inStream.close();
+        outStream.close();
+        return totalBits;
+        //throw new IOException("compress is not implemented");
         //return 0;
     }
 

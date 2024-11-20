@@ -30,17 +30,15 @@ public class PriorityQueue314<E extends Comparable<? super E>> {
      * item in the priority queue.
      */
     private int findPos(ArrayList<TreeNode> arr, TreeNode item) {
-        for (int i = 0; i < arr.size(); i++)
-        {
-            TreeNode node = arr.get(i);
-            // only insert at i if we know the node frequency is greater than item freq.
-            // This is to do the tie breaker.
-            // TODO: compareTo
-            if (node.getFrequency() > item.getFrequency())
-            {
+        // linear search
+        for (int i = 0; i < arr.size(); i++) {
+            TreeNode curr = arr.get(i);
+            // if curr freq is greater than item freq, add at that position
+            if (curr.compareTo(item) > 0) {
                 return i;
             }
         }
+        // otherwise item freq is biggest
         return arr.size();
     }
 
@@ -74,8 +72,10 @@ public class PriorityQueue314<E extends Comparable<? super E>> {
         return myCon.size() == 0;
     }
 
-    public String toString()
-    {
+    /**
+     * Returns myCon. To help with debugging.
+     */
+    public String toString() {
         return myCon.toString();
     }
 }
