@@ -26,9 +26,13 @@ public class SimpleHuffProcessor implements IHuffProcessor {
 
     private IHuffViewer myViewer;
     private TreeMap<Integer, String> codeMap;
-    private TreeNode treeMap;
+    private TreeNode root;
     private int HEADER;
+    private int treeSize;
     private int numLeaves;
+    private TreeMap<Integer, Integer> freqs;
+    private int[] myCounts;
+    private final int BITS_PER_TREE_LEAF = 9;
 
     /**
      * Preprocess data so that compression is possible ---
@@ -52,36 +56,32 @@ public class SimpleHuffProcessor implements IHuffProcessor {
         HEADER = headerFormat;
 
         BitInputStream bits = new BitInputStream(in);
-        int inbits = bits.readBits(BITS_PER_WORD);
-        // HashMap maps inbits to frequency
-        TreeMap<Integer, Integer> freqs = new TreeMap<>();
-        int ogSize = countFreqs(bits, inbits, freqs);
+        // HashMap maps chars to frequency
+        freqs = new TreeMap<>();
+        myCounts = new int[ALPH_SIZE];
+        int ogSize = countFreqs(bits, freqs, myCounts);
         // add psuedo EOF value to priority queue
         freqs.put(PSEUDO_EOF, 1);        
-        bits.close();
         System.out.println(freqs);
 
         // enqueues all chars into priority queue
         PriorityQueue314<TreeNode> pq = new PriorityQueue314<>();
-        treeMap = buildCodingTree(pq, freqs);
+        root = HuffTree.buildCodingTree(pq, freqs);
 
         // intializes code map
         codeMap = new TreeMap<>();
-        numLeaves = inOrderTraversal(treeMap, "", codeMap, new int[1]);
+        int[] sizes = HuffTree.inOrderTraversal(root, "", codeMap, new int[2]);
+        // TODO -bad code practice?
+        numLeaves = sizes[0];
+        treeSize = sizes[1];
+
         System.out.println(codeMap);
 
-        // calculate return value
-        int compSize = 0;
-        for (Integer val : freqs.keySet()) {
-            compSize += codeMap.get(val).length() * freqs.get(val);
-        }
-
-        int diff = ogSize - compSize;
+        int diff = calculateDiff(ogSize, HEADER);
         if (diff < 0) {
             myViewer.showError("Compressed file has " + diff + " more bits than uncompressed " +
             "file.\n Select \"force\" compresssion option to compress.");
         }
-
         return diff;
         // showString("Not working yet");
         // myViewer.update("Still not working");
@@ -92,60 +92,51 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * Helper method for preprocessComplete. Counts frequencies for each char and stores in
      * a HashMap passed by reference.
      */
-    private int countFreqs(BitInputStream bits, int inbits, 
-                                            TreeMap<Integer,Integer> freqs) throws IOException {
+    private int countFreqs(BitInputStream bits, TreeMap<Integer,Integer> freqs, 
+                                                int[] myCounts) throws IOException {
+        
+        int inbits = bits.readBits(BITS_PER_WORD);
         int size = 0;
+        // read through all streamed bits
         while (inbits != -1) {
+            // if new, create key with count of 1
             if (!freqs.containsKey(inbits)) {
                 freqs.put(inbits, 1);
+            // otherwise, add 1 to current count
             } else {
                 freqs.put(inbits, freqs.get(inbits) + 1);
             }
+            // updates myCounts (used for SCF later)
+            myCounts[inbits]++;
+            // add standard ASCII encoding size
             size += BITS_PER_WORD;
-            inbits = bits.readBits(IHuffConstants.BITS_PER_WORD);
+            inbits = bits.readBits(BITS_PER_WORD);
         }
+        // closes stream to prevent data leaks
+        bits.close();
         return size;
     }
 
-    /**
-     * Helper method for preprocessComplete. Iteratively creates the coding tree using
-     * Huffman encoding.
-     */
-    private TreeNode buildCodingTree(PriorityQueue314<TreeNode> pq, TreeMap<Integer, Integer> freqs) {
-        // enqueue all elements into priority queue
-        for (Integer i : freqs.keySet()) {
-            pq.enqueue(new TreeNode(i, freqs.get(i)));
+    private int calculateDiff(int ogSize, int header) {
+        int compSize = 0;
+        for (Integer val : freqs.keySet()) {
+            compSize += codeMap.get(val).length() * freqs.get(val);
         }
-        System.out.println(pq.toString());
-        // tracks root
-        TreeNode node = null;
-        // coding tree creation
-        while (pq.size() >= 2) {
-            // dequeue 2 highest priority (lowest frequency) TreeNodes
-            TreeNode temp1 = pq.dequeue();
-            TreeNode temp2 = pq.dequeue();
-            // -1 is placeholder value
-            node = new TreeNode(temp1, -1, temp2);
-            // add internal node
-            pq.enqueue(node);
+        // add magic number, header format, and header content
+        compSize += BITS_PER_INT * 2;
+        // header content
+        if (header == STORE_COUNTS) {
+            compSize += ALPH_SIZE * BITS_PER_INT;
+        } else if (header == STORE_TREE) {
+            // size of tree
+            compSize += BITS_PER_INT;
+            System.out.println(numLeaves);
+            System.out.println(treeSize);
+            compSize += numLeaves * BITS_PER_TREE_LEAF + treeSize;
         }
-        return node;
-    }
-
-    /**
-     * Helper method for buildCodingTree. Recursively performs an in-order traversal for 
-     * binary search tree, adding leaf nodes to coding map. 
-     */
-    private int inOrderTraversal(TreeNode root, String path, TreeMap<Integer, String> map, int[] count) {
-        if (root != null)  {
-            inOrderTraversal(root.getLeft(), path + "0", map, count);
-            if (root.isLeaf()) {
-                map.put(root.getValue(), path);
-            }
-            count[0]++;
-            inOrderTraversal(root.getRight(), path + "1", map, count); 
-        }
-        return count[0];
+        System.out.println(ogSize);
+        System.out.println(compSize);
+        return ogSize - compSize;
     }
 
     /**
@@ -163,24 +154,31 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * writing to the output file.
      */
     public int compress(InputStream in, OutputStream out, boolean force) throws IOException {
+        // initializes input (read) and output (write) streams
         BitInputStream inStream = new BitInputStream(in);
         BitOutputStream outStream = new BitOutputStream(out);
+        // writes magic number indicating huffman file
         outStream.writeBits(BITS_PER_INT, MAGIC_NUMBER);
+        // writes header format
         outStream.writeBits(BITS_PER_INT, HEADER);
+        // writes header content
+        if (HEADER == STORE_COUNTS) {
+            encodeMap(outStream); // SCF
+        } else if (HEADER == STORE_TREE) {
+            encodeTree(root, outStream); // STF
+        }
+        // converts every char in file to huffman encoded binary
+        // TODO - figure out if compression writing can be done in just SCF format
         int totalBits = 0;
         int inbits = inStream.readBits(BITS_PER_WORD);
-        if (HEADER == STORE_COUNTS) {
-            while (inbits != -1) {
-                outStream.writeBits(codeMap.get(inbits).length(), Integer.parseInt(codeMap.get(inbits)));
-                totalBits += codeMap.get(inbits).length();
-            }
-        } else if (HEADER == STORE_TREE) {
-            while (inbits != -1) {
-                outStream.writeBits(codeMap.get(inbits).length(), Integer.parseInt(codeMap.get(inbits)));
-                totalBits += codeMap.get(inbits).length();
-            }
+        while (inbits != -1) {
+            // TODO- fix integer.parse int
+            outStream.writeBits(codeMap.get(inbits).length(), Integer.parseInt(codeMap.get(inbits)));
+            totalBits += codeMap.get(inbits).length();
+            inbits = inStream.readBits(BITS_PER_WORD);
         }
-        
+        // TODO- writes pseudo-EOF file
+        outStream.writeBits(codeMap.get(PSEUDO_EOF).length(), Integer.parseInt(codeMap.get(PSEUDO_EOF)));
         inStream.close();
         outStream.close();
         return totalBits;
@@ -188,15 +186,30 @@ public class SimpleHuffProcessor implements IHuffProcessor {
         //return 0;
     }
 
+    private void encodeMap(BitOutputStream out) {
+        for(int i = 0; i < ALPH_SIZE; i++) {
+            out.writeBits(BITS_PER_INT, myCounts[i]);
+        }
+    }
+
     private void encodeTree(TreeNode root, BitOutputStream out) {
         BitOutputStream bos = new BitOutputStream(out);
-        bos.writeBits(BITS_PER_INT, numLeaves);
+        int bitSize = numLeaves * BITS_PER_TREE_LEAF + treeSize;
+        bos.writeBits(BITS_PER_INT, bitSize);
+        preOrderTraversal(root, bos);
         bos.close();
     }
 
-    private String preOrderTraversal(TreeNode node, String output) {
-        if (node != null) {
+    private void preOrderTraversal(TreeNode node, BitOutputStream bos) {
+        while (node != null) {
+            if (node.isLeaf()) {
+                bos.writeBits(BITS_PER_WORD + 1, node.getValue());
+            }
             
+            preOrderTraversal(node.getLeft(), bos);
+            bos.writeBits(1, 0);
+            preOrderTraversal(node.getRight(), bos);
+            bos.writeBits(1, 1);
         }
     }
 
