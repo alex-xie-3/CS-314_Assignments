@@ -28,6 +28,7 @@ public class SimpleHuffProcessor implements IHuffProcessor {
     private TreeMap<Integer, String> codeMap;
     private TreeNode treeMap;
     private int HEADER;
+    private int numLeaves;
 
     /**
      * Preprocess data so that compression is possible ---
@@ -66,7 +67,7 @@ public class SimpleHuffProcessor implements IHuffProcessor {
 
         // intializes code map
         codeMap = new TreeMap<>();
-        inOrderTraversal(treeMap, "", codeMap);
+        numLeaves = inOrderTraversal(treeMap, "", codeMap, new int[1]);
         System.out.println(codeMap);
 
         // calculate return value
@@ -135,14 +136,16 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * Helper method for buildCodingTree. Recursively performs an in-order traversal for 
      * binary search tree, adding leaf nodes to coding map. 
      */
-    private void inOrderTraversal(TreeNode root, String path, TreeMap<Integer, String> map) {
+    private int inOrderTraversal(TreeNode root, String path, TreeMap<Integer, String> map, int[] count) {
         if (root != null)  {
-            inOrderTraversal(root.getLeft(), path + "0", map);
+            inOrderTraversal(root.getLeft(), path + "0", map, count);
             if (root.isLeaf()) {
                 map.put(root.getValue(), path);
             }
-            inOrderTraversal(root.getRight(), path + "1", map); 
-        }   
+            count[0]++;
+            inOrderTraversal(root.getRight(), path + "1", map, count); 
+        }
+        return count[0];
     }
 
     /**
@@ -164,25 +167,37 @@ public class SimpleHuffProcessor implements IHuffProcessor {
         BitOutputStream outStream = new BitOutputStream(out);
         outStream.writeBits(BITS_PER_INT, MAGIC_NUMBER);
         outStream.writeBits(BITS_PER_INT, HEADER);
-        int magic = inStream.readBits(BITS_PER_INT);
-        if (magic != MAGIC_NUMBER) {
-            myViewer.showError("Error reading compressed file. \n" +
-                    "File did not start with the huff magic number.");
-            inStream.close();
-            outStream.close();
-            return -1;
-        }
         int totalBits = 0;
         int inbits = inStream.readBits(BITS_PER_WORD);
-        while (inbits != -1) {
-            outStream.writeBits(codeMap.get(inbits).length(), Integer.parseInt(codeMap.get(inbits)));
-            totalBits += codeMap.get(inbits).length();
+        if (HEADER == STORE_COUNTS) {
+            while (inbits != -1) {
+                outStream.writeBits(codeMap.get(inbits).length(), Integer.parseInt(codeMap.get(inbits)));
+                totalBits += codeMap.get(inbits).length();
+            }
+        } else if (HEADER == STORE_TREE) {
+            while (inbits != -1) {
+                outStream.writeBits(codeMap.get(inbits).length(), Integer.parseInt(codeMap.get(inbits)));
+                totalBits += codeMap.get(inbits).length();
+            }
         }
+        
         inStream.close();
         outStream.close();
         return totalBits;
         //throw new IOException("compress is not implemented");
         //return 0;
+    }
+
+    private void encodeTree(TreeNode root, BitOutputStream out) {
+        BitOutputStream bos = new BitOutputStream(out);
+        bos.writeBits(BITS_PER_INT, numLeaves);
+        bos.close();
+    }
+
+    private String preOrderTraversal(TreeNode node, String output) {
+        if (node != null) {
+            
+        }
     }
 
     /**
@@ -195,8 +210,20 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * writing to the output file.
      */
     public int uncompress(InputStream in, OutputStream out) throws IOException {
-	        throw new IOException("uncompress not implemented");
-	        //return 0;
+        BitInputStream inStream = new BitInputStream(in);
+        BitOutputStream outStream = new BitOutputStream(out);
+        int magic = inStream.readBits(BITS_PER_INT);
+        if (magic != MAGIC_NUMBER) {
+            myViewer.showError("Error reading compressed file. \n" +
+                    "File did not start with the huff magic number.");
+            inStream.close();
+            outStream.close();
+            return -1;
+        }
+        inStream.close();
+        outStream.close();
+        throw new IOException("uncompress not implemented");
+        //return 0;
     }
 
     public void setViewer(IHuffViewer viewer) {
