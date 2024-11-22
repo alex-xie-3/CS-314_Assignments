@@ -19,7 +19,6 @@
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.HashMap;
 import java.util.TreeMap;
 
 public class SimpleHuffProcessor implements IHuffProcessor {
@@ -54,12 +53,7 @@ public class SimpleHuffProcessor implements IHuffProcessor {
 
         ht = new HuffTree(HEADER, bits);
 
-        int diff = ht.calculateDiff();
-        if (diff < 0) {
-            myViewer.showError("Compressed file has " + diff + " more bits than uncompressed " +
-            "file.\n Select \"force\" compresssion option to compress.");
-        }
-        return diff;
+        return ht.calculateDiff();
         // showString("Not working yet");
         // myViewer.update("Still not working");
         // throw new IOException("preprocess not implemented");
@@ -80,36 +74,16 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * writing to the output file.
      */
     public int compress(InputStream in, OutputStream out, boolean force) throws IOException {
-        // initializes input (read) and output (write) streams
-        BitInputStream inStream = new BitInputStream(in);
-        BitOutputStream outStream = new BitOutputStream(out);
-        // writes magic number indicating huffman file
-        outStream.writeBits(BITS_PER_INT, MAGIC_NUMBER);
-        // writes header format
-        outStream.writeBits(BITS_PER_INT, HEADER);
-        // writes header content
-        if (HEADER == STORE_COUNTS) {
-            ht.encodeMap(outStream); // SCF
-        } else if (HEADER == STORE_TREE) {
-            ht.encodeTree(outStream); // STF
+        if (!force) {
+            myViewer.showError("Compressed file has " + ht.calculateDiff() +  " more bits than uncompressed " +
+            "file.\n Select \"force\" compresssion option to compress.");
+        } else {
+            // initializes input (read) and output (write) streams
+            BitInputStream inStream = new BitInputStream(in);
+            BitOutputStream outStream = new BitOutputStream(out);
+            return ht.encode(inStream, outStream);
         }
-        // converts every char in file to huffman encoded binary
-        int totalBits = 0;
-        TreeMap<Integer, String> codeMap = ht.getCodeMap();
-        int inbits = inStream.readBits(BITS_PER_WORD);
-        while (inbits != -1) {
-            // TODO- fix integer.parse int
-            //outStream.write(Integer.parseInt(codeMap.get(inbits), 2));
-            outStream.writeBits(codeMap.get(inbits).length(), Integer.parseInt(codeMap.get(inbits), 2));
-            totalBits += codeMap.get(inbits).length();
-            inbits = inStream.readBits(BITS_PER_WORD);
-        }
-        //outStream.write(Integer.parseInt(codeMap.get(PSEUDO_EOF), 2));
-        outStream.writeBits(codeMap.get(PSEUDO_EOF).length(), Integer.parseInt(codeMap.get(PSEUDO_EOF), 2));
-        // close streams
-        inStream.close();
-        outStream.close();
-        return totalBits;
+        return 0;
         //throw new IOException("compress is not implemented");
         //return 0;
     }

@@ -1,7 +1,8 @@
 import java.io.IOException;
 import java.util.TreeMap;
+import java.util.ArrayList;
 
-public class HuffTree {
+public class HuffTree implements IHuffConstants {
     private int HEADER;
     private TreeMap<Integer, Integer> freqMap; // maps ASCII of char to frequency
     private int[] myCounts;
@@ -16,7 +17,7 @@ public class HuffTree {
     public HuffTree(int HEADER, BitInputStream bis) throws IOException {
         this.HEADER = HEADER;
         this.freqMap = new TreeMap<>();
-        this.myCounts = new int[IHuffConstants.ALPH_SIZE];
+        this.myCounts = new int[ALPH_SIZE];
         this.ogBitSize = countFreqs(bis, freqMap, myCounts);
         this.pq = new PriorityQueue314<>();
         this.root = null;
@@ -32,7 +33,7 @@ public class HuffTree {
     private int countFreqs(BitInputStream bits, TreeMap<Integer,Integer> freqMap,
                                                             int[] myCounts) throws IOException {
         
-        int inbits = bits.readBits(IHuffConstants.BITS_PER_WORD);
+        int inbits = bits.readBits(BITS_PER_WORD);
         int ogSize = 0;
         // read through all streamed bits
         while (inbits != -1) {
@@ -46,11 +47,11 @@ public class HuffTree {
             // updates myCounts (used for SCF later)
             myCounts[inbits]++;
             // add standard ASCII encoding size
-            ogSize += IHuffConstants.BITS_PER_WORD;
-            inbits = bits.readBits(IHuffConstants.BITS_PER_WORD);
+            ogSize += BITS_PER_WORD;
+            inbits = bits.readBits(BITS_PER_WORD);
         }
         // add psuedo EOF value to priority queue
-        freqMap.put(IHuffConstants.PSEUDO_EOF, 1);
+        freqMap.put(PSEUDO_EOF, 1);
         // closes stream to prevent data leaks
         bits.close();
         System.out.println(freqMap);
@@ -106,13 +107,13 @@ public class HuffTree {
             compSize += codeMap.get(val).length() * freqMap.get(val);
         }
         // add magic number, header format, and header content
-        compSize += IHuffConstants.BITS_PER_INT * 2;
+        compSize += BITS_PER_INT * 2;
         // header content
-        if (HEADER == IHuffConstants.STORE_COUNTS) {
-            compSize += IHuffConstants.ALPH_SIZE * IHuffConstants.BITS_PER_INT;
-        } else if (HEADER == IHuffConstants.STORE_TREE) {
+        if (HEADER == STORE_COUNTS) {
+            compSize += ALPH_SIZE * BITS_PER_INT;
+        } else if (HEADER == STORE_TREE) {
             // size of tree
-            compSize += IHuffConstants.BITS_PER_INT;
+            compSize += BITS_PER_INT;
             System.out.println(numLeaves);
             System.out.println(treeSize);
             compSize += numLeaves * BITS_PER_TREE_LEAF + treeSize;
@@ -123,32 +124,31 @@ public class HuffTree {
     }
 
     public void encodeMap(BitOutputStream out) {
-        for (int i = 0; i < IHuffConstants.ALPH_SIZE; i++) {
-            out.writeBits(IHuffConstants.BITS_PER_INT, myCounts[i]);
+        for (int i = 0; i < ALPH_SIZE; i++) {
+            out.writeBits(BITS_PER_INT, myCounts[i]);
         }
     }
 
     public void encodeTree(BitOutputStream out) {
-        BitOutputStream bos = new BitOutputStream(out);
         int bitSize = numLeaves * BITS_PER_TREE_LEAF + treeSize;
-        bos.writeBits(IHuffConstants.BITS_PER_INT, bitSize);
-        preOrderTraversal(root, bos);
-        bos.close();
+        out.writeBits(BITS_PER_INT, bitSize);
+        ArrayList<TreeNode> preOrder = new ArrayList<>();
+        preOrderTraversal(root, preOrder);
+        for (TreeNode t : preOrder) {
+            if (t.getValue() == -1) {
+                out.writeBits(1, 0);
+            } else {
+                out.writeBits(1, 1);
+                out.writeBits(BITS_PER_WORD + 1, t.getValue());
+            }
+        }
     }
 
-    private void preOrderTraversal(TreeNode node, BitOutputStream bos) {
+    private void preOrderTraversal(TreeNode node, ArrayList<TreeNode> result) {
         if (node != null) {
-            if (node.isLeaf()) {
-                bos.writeBits(IHuffConstants.BITS_PER_WORD + 1, node.getValue());
-            }
-            if (node.getLeft() != null) {
-                bos.writeBits(1, 0);
-                preOrderTraversal(node.getLeft(), bos);
-            }
-            if (node.getRight() != null) {
-                bos.writeBits(1, 1);
-                preOrderTraversal(node.getRight(), bos);
-            }
+            result.add(node);
+            preOrderTraversal(node.getLeft(), result);
+            preOrderTraversal(node.getRight(), result);
         }
     }
 
@@ -168,6 +168,33 @@ public class HuffTree {
         return numLeaves;
     }
 
+    public int encode(BitInputStream inStream, BitOutputStream outStream) throws IOException {
+        // writes magic number indicating huffman file
+        outStream.writeBits(BITS_PER_INT, MAGIC_NUMBER);
+        // writes header format
+        outStream.writeBits(BITS_PER_INT, HEADER);
+        // writes header content
+        if (HEADER == STORE_COUNTS) {
+            encodeMap(outStream); // SCF
+        } else if (HEADER == STORE_TREE) {
+            encodeTree(outStream); // STF
+        }
+        // converts every char in file to huffman encoded binary
+        int totalBits = 0;
+        TreeMap<Integer, String> codeMap = getCodeMap();
+        int inbits = inStream.readBits(BITS_PER_WORD);
+        while (inbits != -1) {
+            outStream.writeBits(codeMap.get(inbits).length(), Integer.parseInt(codeMap.get(inbits), 2));
+            totalBits += codeMap.get(inbits).length();
+            inbits = inStream.readBits(BITS_PER_WORD);
+        }
+        outStream.writeBits(codeMap.get(PSEUDO_EOF).length(), Integer.parseInt(codeMap.get(PSEUDO_EOF), 2));
+        // close streams
+        inStream.close();
+        outStream.close();
+        return totalBits;
+    }
+
     /**
      * Uncompress a previously compressed stream in, writing the
      * uncompressed bits/data to out.
@@ -177,39 +204,39 @@ public class HuffTree {
      * @throws IOException if an error occurs while reading from the input file or
      * writing to the output file.
      */
-    public int decode() throws IOException
-    {
-        TreeNode node = root;
-        boolean done = false;
-        while (!done)
-        {
-            int bit = bitsIn.readBits(1);
-            if (bit == -1)
-            {
-                throw new IOException("Error reading compressed file. \n" +
-                    "unexpected end of input. No PSEUDO_EOF value.");
-            }
-            else
-            {
-                // move left or right in tree based on value of bit
-                // (move left if bit is 0, move right if bit is 1)
-                if (bit == 0)
-                {
-                    node = node.getLeft();
-                }
-                else if (bit == 1)
-                {
-                    node = node.getRight();
-                }
+    // public int decode() throws IOException
+    // {
+    //     TreeNode node = root;
+    //     boolean done = false;
+    //     while (!done)
+    //     {
+    //         int bit = bitsIn.readBits(1);
+    //         if (bit == -1)
+    //         {
+    //             throw new IOException("Error reading compressed file. \n" +
+    //                 "unexpected end of input. No PSEUDO_EOF value.");
+    //         }
+    //         else
+    //         {
+    //             // move left or right in tree based on value of bit
+    //             // (move left if bit is 0, move right if bit is 1)
+    //             if (bit == 0)
+    //             {
+    //                 node = node.getLeft();
+    //             }
+    //             else if (bit == 1)
+    //             {
+    //                 node = node.getRight();
+    //             }
 
-                if(node.isLeaf()) {
-                    if(val is the pseudo end of file value)
-                        done = true;
-                    else
-                        write out value in leaf to output
-                        get back to root of tree
-            }
-        }
-    }
+    //             if(node.isLeaf()) {
+    //                 if(val is the pseudo end of file value)
+    //                     done = true;
+    //                 else
+    //                     write out value in leaf to output
+    //                     get back to root of tree
+    //         }
+    //     }
+    // }
 
 }
