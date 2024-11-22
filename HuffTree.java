@@ -54,7 +54,6 @@ public class HuffTree implements IHuffConstants {
         freqMap.put(PSEUDO_EOF, 1);
         // closes stream to prevent data leaks
         bits.close();
-        System.out.println(freqMap);
         return ogSize;
     }
 
@@ -69,7 +68,6 @@ public class HuffTree implements IHuffConstants {
             pq.enqueue(new TreeNode(i, freqMap.get(i)));
             numLeaves++;
         }
-        System.out.println(pq.toString());
         // tracks root
         // coding tree creation
         while (pq.size() >= 2) {
@@ -114,22 +112,18 @@ public class HuffTree implements IHuffConstants {
         } else if (HEADER == STORE_TREE) {
             // size of tree
             compSize += BITS_PER_INT;
-            System.out.println(numLeaves);
-            System.out.println(treeSize);
             compSize += numLeaves * BITS_PER_TREE_LEAF + treeSize;
         }
-        System.out.println(ogBitSize);
-        System.out.println(compSize);
         return ogBitSize - compSize;
     }
 
-    public void encodeMap(BitOutputStream out) {
+    private void encodeMap(BitOutputStream out) {
         for (int i = 0; i < ALPH_SIZE; i++) {
             out.writeBits(BITS_PER_INT, myCounts[i]);
         }
     }
 
-    public void encodeTree(BitOutputStream out) {
+    private void encodeTree(BitOutputStream out) {
         int bitSize = numLeaves * BITS_PER_TREE_LEAF + treeSize;
         out.writeBits(BITS_PER_INT, bitSize);
         ArrayList<TreeNode> preOrder = new ArrayList<>();
@@ -152,20 +146,27 @@ public class HuffTree implements IHuffConstants {
         }
     }
 
-    public TreeNode getRoot() {
-        return root;
+    public String printFreqMap() {
+        StringBuilder s = new StringBuilder();
+        s.append("Frequency Table\n");
+        for (Integer i : freqMap.keySet()) {
+            s.append(i + " ");
+            s.append(Integer.toBinaryString(i) + " ");
+            s.append(Character.toString(i) + " ");
+            s.append(freqMap.get(i) + "\n");
+        }
+        return s.toString();
     }
 
-    public TreeMap<Integer, String> getCodeMap() {
-        return codeMap;
-    }
-
-    public int getTreeSize() {
-        return treeSize;
-    }
-
-    public int getNumLeaves() {
-        return numLeaves;
+    public String printCodeMap() {
+        StringBuilder s = new StringBuilder();
+        s.append("Code Map Table\n");
+        for (Integer i : codeMap.keySet()) {
+            s.append(i + " ");
+            s.append(Character.toString(i) + " ");
+            s.append(codeMap.get(i) + "\n");
+        }
+        return s.toString();
     }
 
     public int encode(BitInputStream inStream, BitOutputStream outStream) throws IOException {
@@ -181,7 +182,6 @@ public class HuffTree implements IHuffConstants {
         }
         // converts every char in file to huffman encoded binary
         int totalBits = 0;
-        TreeMap<Integer, String> codeMap = getCodeMap();
         int inbits = inStream.readBits(BITS_PER_WORD);
         while (inbits != -1) {
             outStream.writeBits(codeMap.get(inbits).length(), Integer.parseInt(codeMap.get(inbits), 2));

@@ -48,10 +48,13 @@ public class SimpleHuffProcessor implements IHuffProcessor {
         // initializes header
         HEADER = headerFormat;
 
-        BitInputStream bits = new BitInputStream(in);
+        BitInputStream bis = new BitInputStream(in);
         // HashMap maps chars to frequency
 
-        ht = new HuffTree(HEADER, bits);
+        ht = new HuffTree(HEADER, bis);
+
+        showString(ht.printFreqMap());
+        showString(ht.printCodeMap());
 
         return ht.calculateDiff();
         // showString("Not working yet");
@@ -74,10 +77,11 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * writing to the output file.
      */
     public int compress(InputStream in, OutputStream out, boolean force) throws IOException {
-        if (!force) {
+        if (ht.calculateDiff() < 0 && !force) {
             myViewer.showError("Compressed file has " + ht.calculateDiff() +  " more bits than uncompressed " +
             "file.\n Select \"force\" compresssion option to compress.");
         } else {
+            showString("Compressing...");
             // initializes input (read) and output (write) streams
             BitInputStream inStream = new BitInputStream(in);
             BitOutputStream outStream = new BitOutputStream(out);
