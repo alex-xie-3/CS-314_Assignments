@@ -203,40 +203,100 @@ public class HuffTree implements IHuffConstants {
      * @return the number of bits written to the uncompressed file/stream
      * @throws IOException if an error occurs while reading from the input file or
      * writing to the output file.
-     */
-    // public int decode() throws IOException
-    // {
-    //     TreeNode node = root;
-    //     boolean done = false;
-    //     while (!done)
-    //     {
-    //         int bit = bitsIn.readBits(1);
-    //         if (bit == -1)
-    //         {
-    //             throw new IOException("Error reading compressed file. \n" +
-    //                 "unexpected end of input. No PSEUDO_EOF value.");
-    //         }
-    //         else
-    //         {
-    //             // move left or right in tree based on value of bit
-    //             // (move left if bit is 0, move right if bit is 1)
-    //             if (bit == 0)
-    //             {
-    //                 node = node.getLeft();
-    //             }
-    //             else if (bit == 1)
-    //             {
-    //                 node = node.getRight();
-    //             }
+    */
+    public int decode(BitInputStream bitsIn, BitOutputStream bitsOut) throws IOException
+    {
+        // 1. read header format to see if we are in SCF or STF.
+        int [] newMyCount = new int [256];
+        TreeMap<Integer, Integer> freqs = new TreeMap<>();
+        int num = bitsIn.readBits(1);
+        if (num == IHuffConstants.STORE_COUNTS)
+        {
+            // TODO: make a new method to store all this crap or reuse the method we have but modified
+            num = bitsIn.readBits(1);
+            while (num != 1)
+            {
+                if (!freqs.containsKey(num))
+                {
+                    freqs.put(num, 1);
+                }
+                else
+                {
+                    freqs.put(num, freqs.get(num) + 1);
+                }
+                newMyCount[freqs.get(num)]++;
+                num = bitsIn.readBits(1);
+            }
+        }
 
-    //             if(node.isLeaf()) {
-    //                 if(val is the pseudo end of file value)
-    //                     done = true;
-    //                 else
-    //                     write out value in leaf to output
-    //                     get back to root of tree
-    //         }
-    //     }
-    // }
+        else if (num == IHuffConstants.STORE_TREE)
+        {
+            // make helper method to make tree in STF
+            int sizeOfTree = bitsIn.readBits(BITS_PER_INT);
+            TreeNode node = root;
+            TreeNode start = decodeTreeHelper(node, bitsIn);
+        }
+
+        int totalBits = 0;
+        TreeNode node = root;
+        boolean done = false;
+        while (!done)
+        {
+            int bit = bitsIn.readBits(1);
+            if (bit == -1)
+            {
+                throw new IOException("Error reading compressed file. \n" +
+                    "unexpected end of input. No PSEUDO_EOF value.");
+            }
+            else
+            {
+                totalBits++;
+                // move left or right in tree based on value of bit
+                // (move left if bit is 0, move right if bit is 1)
+                if (bit == 0)
+                {
+                    node = node.getLeft();
+                }
+                else if (bit == 1)
+                {
+                    node = node.getRight();
+                }
+
+                if(node.isLeaf()) 
+                {
+                    if(node.getValue() == IHuffConstants.PSEUDO_EOF)
+                    {
+                       done = true; 
+                    }
+                    else
+                    {
+                        bitsOut.writeBits(IHuffConstants.BITS_PER_INT, node.getValue()); // not sure if this is correct
+                    }
+                    // write out value in leaf to output
+                    // get back to root of tree
+                }
+            }
+        }
+        bitsIn.close();
+        bitsOut.close();
+        return totalBits;
+    }
+
+    private TreeNode decodeTreeHelper(TreeNode node, BitInputStream in) throws IOException
+    {   
+        int num = in.readBits(1);
+        if (num == 0)
+        {
+            TreeNode newNode = new TreeNode(-1, 0);
+            newNode.setLeft(decodeTreeHelper(newNode.getLeft(), in));
+            newNode.setRight(decodeTreeHelper(newNode.getRight(), in));
+        }
+        if (num == 1)
+        {
+            num = in.readBits(BITS_PER_TREE_LEAF);
+            TreeNode newNode = new TreeNode(num, 0); // what am i supposed to put for freq.
+        }
+        return null;
+    }
 
 }
