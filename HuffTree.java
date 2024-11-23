@@ -1,3 +1,20 @@
+/*  Student information for assignment:
+ *
+ *  On OUR honor, Alex Xie and Kevin Nguyen, this programming assignment is OUR own work
+ *  and WE have not provided this code to any other student.
+ *
+ *  Number of slip days used: 2
+ *
+ *  Student 1 (Student whose Canvas account is being used)
+ *  UTEID: ayx72
+ *  email address: alex.xie@utexas.edu
+ *  Grader name: Eliza Bidwell
+ *
+ *  Student 2
+ *  UTEID: kmn2562
+ *  email address: kevinnguyen4221@gmail.com
+ *
+*/
 import java.io.IOException;
 import java.util.TreeMap;
 import java.util.ArrayList;
