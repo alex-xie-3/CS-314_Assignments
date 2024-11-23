@@ -3,7 +3,7 @@
  *  On OUR honor, Alex Xie and Kevin Nguyen, this programming assignment is OUR own work
  *  and WE have not provided this code to any other student.
  *
- *  Number of slip days used: 0
+ *  Number of slip days used: 2
  *
  *  Student 1 (Student whose Canvas account is being used)
  *  UTEID: ayx72
