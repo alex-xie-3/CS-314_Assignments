@@ -5,7 +5,7 @@
  *
  *  Number of slip days used: 2
  *
- *  Student 1 (Student whose Canvas account is being used)
+ *  Student 1
  *  UTEID: ayx72
  *  email address: alex.xie@utexas.edu
  *  Grader name: Eliza Bidwell
@@ -24,7 +24,8 @@ public class SimpleHuffProcessor implements IHuffProcessor {
 
     private IHuffViewer myViewer;
     private int HEADER;
-    private HuffTree ht;
+    private Compressor c;
+    private Decompressor d;
 
     /**
      * Preprocess data so that compression is possible ---
@@ -50,14 +51,14 @@ public class SimpleHuffProcessor implements IHuffProcessor {
         BitInputStream bis = new BitInputStream(in);
         // HashMap maps chars to frequency
 
-        ht = new HuffTree(HEADER, bis);
+        c = new Compressor(HEADER, bis);
 
-        showString(ht.printFreqMap());
-        showString(ht.printCodeMap());
+        showString(c.printFreqMap());
+        showString(c.printCodeMap());
 
-        showString("Size before compression: " + ht.getOGBitSize());
+        showString("Size before compression: " + c.getOGBitSize());
 
-        return ht.calculateDiff();
+        return c.calculateDiff();
         // showString("Not working yet");
         // myViewer.update("Still not working");
         // throw new IOException("preprocess not implemented");
@@ -78,15 +79,15 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * writing to the output file.
      */
     public int compress(InputStream in, OutputStream out, boolean force) throws IOException {
-        if (ht.calculateDiff() < 0 && !force) {
-            myViewer.showError("Compressed file has " + ht.calculateDiff() +  " more bits than uncompressed " +
+        if (c.calculateDiff() < 0 && !force) {
+            myViewer.showError("Compressed file has " + c.calculateDiff() +  " more bits than uncompressed " +
             "file.\n Select \"force\" compresssion option to compress.");
         } else {
             showString("Compressing...");
             // initializes input (read) and output (write) streams
             BitInputStream inStream = new BitInputStream(in);
             BitOutputStream outStream = new BitOutputStream(out);
-            return ht.encode(inStream, outStream);
+            return c.encode(inStream, outStream);
         }
         return 0;
         //throw new IOException("compress is not implemented");
@@ -113,12 +114,12 @@ public class SimpleHuffProcessor implements IHuffProcessor {
             outStream.close();
             return -1;
         }
-        ht = new HuffTree(inStream, outStream);
+        d = new Decompressor(inStream, outStream);
         // Main goal: rebuild huffman tree
         // read information from compression and reconstruct huffman tree
         // use 2 diff methods for Standard count header and Standard Tree Header
-        int num = ht.decode(inStream, outStream);
-        showString(ht.printFreqMap());
+        int num = d.decode(inStream, outStream);
+        showString(d.printFreqMap());
         showString("" + num);
         return num;
         //throw new IOException("uncompress not implemented");
