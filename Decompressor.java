@@ -1,16 +1,10 @@
 import java.io.IOException;
-import java.util.TreeMap;
 
 public class Decompressor extends HuffTree {
-
-    private PriorityQueue314<TreeNode> pq;
     
     public Decompressor(BitInputStream bis, BitOutputStream bos) throws IOException {
         super(bis, bos);
-        this.freqMap = new TreeMap<>();
-        this.pq = new PriorityQueue314<>();
         this.root = null;
-        this.codeMap = new TreeMap<>();
     }
 
     // FOR DECODING
@@ -26,20 +20,18 @@ public class Decompressor extends HuffTree {
     */
     public int decode(BitInputStream bitsIn, BitOutputStream bitsOut) throws IOException {
         // 1. read header format to see if we are in SCF or STF.
-        TreeMap<Integer, Integer> freqs = new TreeMap<>();
         int num = bitsIn.readBits(BITS_PER_INT);
         if (num == IHuffConstants.STORE_COUNTS) {
             // TODO: make a new method to store all this crap or reuse the method we have but modified
             for (int i = 0; i < ALPH_SIZE; i++) { // i represents ASCII
                 num = bitsIn.readBits(BITS_PER_INT);
                  // num reps freq
-                if (!freqs.containsKey(num) && num != 0) {
-                    freqs.put(i, num);
+                if (!freqMap.containsKey(num) && num != 0) {
+                    freqMap.put(i, num);
                 }
             }
-            this.freqMap = freqs;
-            System.out.println(freqs);
-            freqs.put(PSEUDO_EOF, 1);
+            System.out.println(freqMap);
+            freqMap.put(PSEUDO_EOF, 1);
             this.root = buildCodingTree();
         } else if (num == IHuffConstants.STORE_TREE) {
             // make helper method to make tree in STF

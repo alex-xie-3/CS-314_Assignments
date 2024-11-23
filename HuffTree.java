@@ -2,22 +2,24 @@ import java.io.IOException;
 import java.util.TreeMap;
 
 public class HuffTree implements IHuffConstants {
+
     protected int HEADER;
     protected TreeMap<Integer, Integer> freqMap; // maps ASCII of char to frequency
+    protected PriorityQueue314<TreeNode> pq;
     protected TreeNode root;
     protected TreeMap<Integer, String> codeMap; // maps ASCII of char to string rep of tree binary path
+
     protected final int BITS_PER_TREE_LEAF = 9;
 
     public HuffTree(BitInputStream bis, BitOutputStream bos) throws IOException {
         this.freqMap = new TreeMap<>();
-        this.root = null;
+        this.pq = new PriorityQueue314<>();
         this.codeMap = new TreeMap<>();
     }
 
     public HuffTree(int HEADER, BitInputStream bis) throws IOException {
         this.HEADER = HEADER;
         this.freqMap = new TreeMap<>();
-        this.root = null;
         this.codeMap = new TreeMap<>();
     }
 

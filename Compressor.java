@@ -4,7 +4,6 @@ import java.util.TreeMap;
 
 public class Compressor extends HuffTree {
     private int[] myCounts;
-    private PriorityQueue314<TreeNode> pq;
     private int ogBitSize;
     private int treeSize;
     private int numLeaves;
@@ -13,10 +12,8 @@ public class Compressor extends HuffTree {
 
     public Compressor(int HEADER, BitInputStream bis) throws IOException {
         super(HEADER, bis);
-        this.freqMap = new TreeMap<>();
         this.myCounts = new int[ALPH_SIZE];
         this.ogBitSize = countFreqs(bis, freqMap, myCounts);
-        this.pq = new PriorityQueue314<>();
         this.root = buildCodingTree();
         int[] sizes = inOrderTraversal(root, "", new int[2], codeMap);
         this.treeSize = sizes[0];
