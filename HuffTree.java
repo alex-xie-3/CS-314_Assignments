@@ -14,26 +14,39 @@ public class HuffTree implements IHuffConstants {
     private int numLeaves;
     private final int BITS_PER_TREE_LEAF = 9;
 
+    public HuffTree(BitInputStream bis, BitOutputStream bos) throws IOException {
+        this.freqMap = new TreeMap<>();
+        this.myCounts = new int[ALPH_SIZE];
+        // this.ogBitSize = countFreqs(bis, freqMap, myCounts);
+        this.pq = new PriorityQueue314<>();
+        this.root = null;
+        // this.codeMap = new TreeMap<>();
+        // int[] sizes = inOrderTraversal(root, "", new int[2], codeMap);
+        // this.treeSize = sizes[0];
+        // this.numLeaves = sizes[1];
+    }
+
     public HuffTree(int HEADER, BitInputStream bis) throws IOException {
         this.HEADER = HEADER;
         this.freqMap = new TreeMap<>();
         this.myCounts = new int[ALPH_SIZE];
         this.ogBitSize = countFreqs(bis, freqMap, myCounts);
         this.pq = new PriorityQueue314<>();
-        this.root = null;
-        this.numLeaves = buildCodingTree(root);
+        this.root = buildCodingTree();
         this.codeMap = new TreeMap<>();
-        this.treeSize = inOrderTraversal(root, "", new int[1], codeMap);
+        int[] sizes = inOrderTraversal(root, "", new int[2], codeMap);
+        this.treeSize = sizes[0];
+        this.numLeaves = sizes[1];
     }
 
     /**
      * Helper method for preprocessComplete. Counts frequencies for each char and stores in
      * a HashMap passed by reference.
      */
-    private int countFreqs(BitInputStream bits, TreeMap<Integer,Integer> freqMap,
+    private int countFreqs(BitInputStream bis, TreeMap<Integer,Integer> freqMap,
                                                             int[] myCounts) throws IOException {
         
-        int inbits = bits.readBits(BITS_PER_WORD);
+        int inbits = bis.readBits(BITS_PER_WORD);
         int ogSize = 0;
         // read through all streamed bits
         while (inbits != -1) {
@@ -48,12 +61,12 @@ public class HuffTree implements IHuffConstants {
             myCounts[inbits]++;
             // add standard ASCII encoding size
             ogSize += BITS_PER_WORD;
-            inbits = bits.readBits(BITS_PER_WORD);
+            inbits = bis.readBits(BITS_PER_WORD);
         }
         // add psuedo EOF value to priority queue
         freqMap.put(PSEUDO_EOF, 1);
         // closes stream to prevent data leaks
-        bits.close();
+        bis.close();
         return ogSize;
     }
 
@@ -61,12 +74,10 @@ public class HuffTree implements IHuffConstants {
      * Helper method for preprocessComplete. Iteratively creates the coding tree using
      * Huffman encoding.
      */
-    private int buildCodingTree(TreeNode root) {
-        int numLeaves = 0;
+    private TreeNode buildCodingTree() {
         // enqueue all elements into priority queue
         for (Integer i : freqMap.keySet()) {
             pq.enqueue(new TreeNode(i, freqMap.get(i)));
-            numLeaves++;
         }
         // tracks root
         // coding tree creation
@@ -75,28 +86,27 @@ public class HuffTree implements IHuffConstants {
             TreeNode temp1 = pq.dequeue();
             TreeNode temp2 = pq.dequeue();
             // -1 is placeholder value
-            root = new TreeNode(temp1, -1, temp2);
             // add internal node
-            pq.enqueue(root);
+            pq.enqueue(new TreeNode(temp1, -1, temp2));
         }
-        this.root = pq.dequeue();
-        return numLeaves;
+        return pq.dequeue();
     }
 
     /**
      * Helper method for buildCodingTree. Recursively performs an in-order traversal for 
      * binary search tree, adding leaf nodes to coding map. 
      */
-    private int inOrderTraversal(TreeNode root, String path, int[] count, TreeMap<Integer, String> codeMap) {
+    private int[] inOrderTraversal(TreeNode root, String path, int[] count, TreeMap<Integer, String> codeMap) {
         if (root != null)  {
             inOrderTraversal(root.getLeft(), path + "0", count, codeMap);
             if (root.isLeaf()) {
                 codeMap.put(root.getValue(), path);
+                count[1]++;
             }
             count[0]++;
             inOrderTraversal(root.getRight(), path + "1", count, codeMap); 
         }
-        return count[0];
+        return count;
     }
 
     public int calculateDiff() {
@@ -116,6 +126,12 @@ public class HuffTree implements IHuffConstants {
         }
         return ogBitSize - compSize;
     }
+
+    public int getOGBitSize() {
+        return ogBitSize;
+    }
+
+    // FOR COMPRESSING
 
     private void encodeMap(BitOutputStream out) {
         for (int i = 0; i < ALPH_SIZE; i++) {
@@ -146,29 +162,6 @@ public class HuffTree implements IHuffConstants {
         }
     }
 
-    public String printFreqMap() {
-        StringBuilder s = new StringBuilder();
-        s.append("Frequency Table\n");
-        for (Integer i : freqMap.keySet()) {
-            s.append(i + " ");
-            s.append(Integer.toBinaryString(i) + " ");
-            s.append(Character.toString(i) + " ");
-            s.append(freqMap.get(i) + "\n");
-        }
-        return s.toString();
-    }
-
-    public String printCodeMap() {
-        StringBuilder s = new StringBuilder();
-        s.append("Code Map Table\n");
-        for (Integer i : codeMap.keySet()) {
-            s.append(i + " ");
-            s.append(Character.toString(i) + " ");
-            s.append(codeMap.get(i) + "\n");
-        }
-        return s.toString();
-    }
-
     public int encode(BitInputStream inStream, BitOutputStream outStream) throws IOException {
         // writes magic number indicating huffman file
         outStream.writeBits(BITS_PER_INT, MAGIC_NUMBER);
@@ -195,6 +188,8 @@ public class HuffTree implements IHuffConstants {
         return totalBits;
     }
 
+    // FOR DECODING
+
     /**
      * Uncompress a previously compressed stream in, writing the
      * uncompressed bits/data to out.
@@ -204,76 +199,58 @@ public class HuffTree implements IHuffConstants {
      * @throws IOException if an error occurs while reading from the input file or
      * writing to the output file.
     */
-    public int decode(BitInputStream bitsIn, BitOutputStream bitsOut) throws IOException
-    {
+    public int decode(BitInputStream bitsIn, BitOutputStream bitsOut) throws IOException {
         // 1. read header format to see if we are in SCF or STF.
-        int [] newMyCount = new int [256];
         TreeMap<Integer, Integer> freqs = new TreeMap<>();
-        int num = bitsIn.readBits(1);
-        if (num == IHuffConstants.STORE_COUNTS)
-        {
+        int num = bitsIn.readBits(BITS_PER_INT);
+        if (num == IHuffConstants.STORE_COUNTS) {
             // TODO: make a new method to store all this crap or reuse the method we have but modified
-            num = bitsIn.readBits(1);
-            while (num != 1)
-            {
-                if (!freqs.containsKey(num))
-                {
-                    freqs.put(num, 1);
+            for (int i = 0; i < ALPH_SIZE; i++) { // i represents ASCII
+                num = bitsIn.readBits(BITS_PER_INT);
+                 // num reps freq
+                if (!freqs.containsKey(num) && num != 0) {
+                    freqs.put(i, num);
                 }
-                else
-                {
-                    freqs.put(num, freqs.get(num) + 1);
-                }
-                newMyCount[freqs.get(num)]++;
-                num = bitsIn.readBits(1);
             }
-        }
-
-        else if (num == IHuffConstants.STORE_TREE)
-        {
+            this.freqMap = freqs;
+            System.out.println(freqs);
+            freqs.put(PSEUDO_EOF, 1);
+            this.root = buildCodingTree();
+        } else if (num == IHuffConstants.STORE_TREE) {
             // make helper method to make tree in STF
             int sizeOfTree = bitsIn.readBits(BITS_PER_INT);
             TreeNode node = root;
-            TreeNode start = decodeTreeHelper(node, bitsIn);
+            this.root = decodeTreeHelper(node, bitsIn, sizeOfTree, new int[1]);
         }
 
         int totalBits = 0;
         TreeNode node = root;
         boolean done = false;
-        while (!done)
-        {
+        while (!done) {
             int bit = bitsIn.readBits(1);
-            if (bit == -1)
-            {
+            if (bit == -1) {
                 throw new IOException("Error reading compressed file. \n" +
                     "unexpected end of input. No PSEUDO_EOF value.");
-            }
-            else
-            {
-                totalBits++;
+            } else {
                 // move left or right in tree based on value of bit
                 // (move left if bit is 0, move right if bit is 1)
-                if (bit == 0)
-                {
+                if (bit == 0) {
                     node = node.getLeft();
                 }
-                else if (bit == 1)
-                {
+                else if (bit == 1) {
                     node = node.getRight();
                 }
 
-                if(node.isLeaf()) 
-                {
-                    if(node.getValue() == IHuffConstants.PSEUDO_EOF)
-                    {
+                if (node.isLeaf()) {
+                    if (node.getValue() == IHuffConstants.PSEUDO_EOF) {
                        done = true; 
-                    }
-                    else
-                    {
-                        bitsOut.writeBits(IHuffConstants.BITS_PER_INT, node.getValue()); // not sure if this is correct
+                    } else {
+                        bitsOut.writeBits(IHuffConstants.BITS_PER_WORD, node.getValue()); // not sure if this is correct
+                        totalBits += BITS_PER_WORD;
                     }
                     // write out value in leaf to output
                     // get back to root of tree
+                    node = root;
                 }
             }
         }
@@ -282,21 +259,54 @@ public class HuffTree implements IHuffConstants {
         return totalBits;
     }
 
-    private TreeNode decodeTreeHelper(TreeNode node, BitInputStream in) throws IOException
-    {   
+    private TreeNode decodeTreeHelper(TreeNode node, BitInputStream in, int sizeOfTree, int[] count) throws IOException {   
+        /*
+            Use freq map in order to end recursion when we reach the end nodes
+        */
+        if (count[0] == sizeOfTree) {
+            return node; // returns root of tree
+        }
+        count[0]++;
         int num = in.readBits(1);
-        if (num == 0)
-        {
-            TreeNode newNode = new TreeNode(-1, 0);
-            newNode.setLeft(decodeTreeHelper(newNode.getLeft(), in));
-            newNode.setRight(decodeTreeHelper(newNode.getRight(), in));
+        if (num == 0) {
+            TreeNode newNode = new TreeNode(-1, 1);
+            newNode.setLeft(decodeTreeHelper(newNode.getLeft(), in, sizeOfTree, count));
+            newNode.setRight(decodeTreeHelper(newNode.getRight(), in, sizeOfTree, count));
+            return newNode;
         }
-        if (num == 1)
-        {
+        if (num == 1) {
             num = in.readBits(BITS_PER_TREE_LEAF);
-            TreeNode newNode = new TreeNode(num, 0); // what am i supposed to put for freq.
+            TreeNode newNode = new TreeNode(num, 1); // what am i supposed to put for freq.
+            return newNode;
+        } else {
+            // we ran out of bits trying to form huffman code tree.
+            throw new IOException("Error reading compressed file. \n");
         }
-        return null;
+    }
+
+    // FOR DEBUGGING
+
+    public String printFreqMap() {
+        StringBuilder s = new StringBuilder();
+        s.append("Frequency Table\n");
+        for (Integer i : freqMap.keySet()) {
+            s.append(i + " ");
+            s.append(Integer.toBinaryString(i) + " ");
+            s.append(Character.toString(i) + " ");
+            s.append(freqMap.get(i) + "\n");
+        }
+        return s.toString();
+    }
+
+    public String printCodeMap() {
+        StringBuilder s = new StringBuilder();
+        s.append("Code Map Table\n");
+        for (Integer i : codeMap.keySet()) {
+            s.append(i + " ");
+            s.append(Character.toString(i) + " ");
+            s.append(codeMap.get(i) + "\n");
+        }
+        return s.toString();
     }
 
 }

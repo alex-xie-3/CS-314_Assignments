@@ -19,7 +19,6 @@
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.TreeMap;
 
 public class SimpleHuffProcessor implements IHuffProcessor {
 
@@ -55,6 +54,8 @@ public class SimpleHuffProcessor implements IHuffProcessor {
 
         showString(ht.printFreqMap());
         showString(ht.printCodeMap());
+
+        showString("Size before compression: " + ht.getOGBitSize());
 
         return ht.calculateDiff();
         // showString("Not working yet");
@@ -112,17 +113,17 @@ public class SimpleHuffProcessor implements IHuffProcessor {
             outStream.close();
             return -1;
         }
+        ht = new HuffTree(inStream, outStream);
         // Main goal: rebuild huffman tree
         // read information from compression and reconstruct huffman tree
         // use 2 diff methods for Standard count header and Standard Tree Header
-        
-        inStream.close();
-        outStream.close();
-        throw new IOException("uncompress not implemented");
+        int num = ht.decode(inStream, outStream);
+        showString(ht.printFreqMap());
+        showString("" + num);
+        return num;
+        //throw new IOException("uncompress not implemented");
         //return 0;
     }
-
-    
 
     public void setViewer(IHuffViewer viewer) {
         myViewer = viewer;
