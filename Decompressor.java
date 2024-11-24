@@ -1,13 +1,15 @@
 import java.io.IOException;
 
+/**
+ * The Decompressor class decompresses a file into huffman encoding and writes the
+ * decoded information into a new file.
+ */
 public class Decompressor extends HuffTree {
     
     public Decompressor(BitInputStream bis, BitOutputStream bos) throws IOException {
         super(bis, bos);
         this.root = null;
     }
-
-    // FOR DECODING
 
     /**
      * Uncompress a previously compressed stream in, writing the
@@ -19,26 +21,7 @@ public class Decompressor extends HuffTree {
      * writing to the output file.
     */
     public int decode(BitInputStream bitsIn, BitOutputStream bitsOut) throws IOException {
-        // 1. read header format to see if we are in SCF or STF.
-        int num = bitsIn.readBits(BITS_PER_INT);
-        if (num == IHuffConstants.STORE_COUNTS) {
-            // TODO: make a new method to store all this crap or reuse the method we have but modified
-            for (int i = 0; i < ALPH_SIZE; i++) { // i represents ASCII
-                num = bitsIn.readBits(BITS_PER_INT);
-                 // num reps freq
-                if (num != 0) {
-                    freqMap.put(i, num);
-                }
-            }
-            System.out.println(freqMap);
-            freqMap.put(PSEUDO_EOF, 1);
-            this.root = buildCodingTree();
-        } else if (num == IHuffConstants.STORE_TREE) {
-            // make helper method to make tree in STF
-            int sizeOfTree = bitsIn.readBits(BITS_PER_INT);
-            TreeNode node = root;
-            this.root = decodeTreeHelper(node, bitsIn, sizeOfTree, new int[1]);
-        }
+        readHeaderInfo(bitsIn);
 
         int totalBits = 0;
         TreeNode node = root;
@@ -57,12 +40,14 @@ public class Decompressor extends HuffTree {
                 else if (bit == 1) {
                     node = node.getRight();
                 }
-
+                // if leaf
                 if (node.isLeaf()) {
+                    // end writing is PSEUDO_EOF
                     if (node.getValue() == IHuffConstants.PSEUDO_EOF) {
                        done = true; 
                     } else {
-                        bitsOut.writeBits(IHuffConstants.BITS_PER_WORD, node.getValue()); // not sure if this is correct
+                        // otherwise write value
+                        bitsOut.writeBits(IHuffConstants.BITS_PER_WORD, node.getValue()); 
                         totalBits += BITS_PER_WORD;
                     }
                     // write out value in leaf to output
@@ -76,6 +61,31 @@ public class Decompressor extends HuffTree {
         return totalBits;
     }
 
+    /**
+     * Helper method for decode. Reads header info and instantiates frequency map or tree.
+     */
+    private void readHeaderInfo(BitInputStream bitsIn) throws IOException {
+        int num = bitsIn.readBits(BITS_PER_INT);
+        if (num == IHuffConstants.STORE_COUNTS) {
+            for (int i = 0; i < ALPH_SIZE; i++) { // i represents ASCII
+                num = bitsIn.readBits(BITS_PER_INT);
+                 // num reps freq
+                if (num != 0) {
+                    freqMap.put(i, num);
+                }
+            }
+            System.out.println(freqMap);
+            freqMap.put(PSEUDO_EOF, 1);
+            this.root = buildCodingTree();
+        } else if (num == IHuffConstants.STORE_TREE) {
+            // make helper method to make tree in STF
+            int sizeOfTree = bitsIn.readBits(BITS_PER_INT);
+            TreeNode node = root;
+            this.root = decodeTreeHelper(node, bitsIn, sizeOfTree, new int[1]);
+        }
+    }
+
+    // Helper method builds code tree.
     private TreeNode buildCodingTree() {
         // enqueue all elements into priority queue
         for (Integer i : freqMap.keySet()) {
@@ -94,6 +104,7 @@ public class Decompressor extends HuffTree {
         return pq.dequeue();
     }
 
+    // Helper method builds tree.
     private TreeNode decodeTreeHelper(TreeNode node, BitInputStream in, int sizeOfTree, int[] count) throws IOException {   
         /*
             Use freq map in order to end recursion when we reach the end nodes
