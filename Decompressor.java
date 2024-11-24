@@ -26,7 +26,7 @@ public class Decompressor extends HuffTree {
             for (int i = 0; i < ALPH_SIZE; i++) { // i represents ASCII
                 num = bitsIn.readBits(BITS_PER_INT);
                  // num reps freq
-                if (!freqMap.containsKey(num) && num != 0) {
+                if (num != 0) {
                     freqMap.put(i, num);
                 }
             }

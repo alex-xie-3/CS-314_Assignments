@@ -24,8 +24,8 @@ public class SimpleHuffProcessor implements IHuffProcessor {
 
     private IHuffViewer myViewer;
     private int HEADER;
+    // compress must be able to access precompress's Compressor object 
     private Compressor c;
-    private Decompressor d;
 
     /**
      * Preprocess data so that compression is possible ---
@@ -49,19 +49,12 @@ public class SimpleHuffProcessor implements IHuffProcessor {
         HEADER = headerFormat;
 
         BitInputStream bis = new BitInputStream(in);
-        // HashMap maps chars to frequency
 
+        // intializes Compressor object
         c = new Compressor(HEADER, bis);
 
-        showString(c.printFreqMap());
-        showString(c.printCodeMap());
-
-        showString("Size before compression: " + c.getOGBitSize());
-
+        // returns the difference between original file size and compressed file size
         return c.calculateDiff();
-        // showString("Not working yet");
-        // myViewer.update("Still not working");
-        // throw new IOException("preprocess not implemented");
     }
 
     /**
@@ -79,19 +72,17 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * writing to the output file.
      */
     public int compress(InputStream in, OutputStream out, boolean force) throws IOException {
+        // if no space is saved in the compressed file, and force compression isn't on
         if (c.calculateDiff() < 0 && !force) {
-            myViewer.showError("Compressed file has " + c.calculateDiff() +  " more bits than uncompressed " +
-            "file.\n Select \"force\" compresssion option to compress.");
-        } else {
-            showString("Compressing...");
-            // initializes input (read) and output (write) streams
-            BitInputStream inStream = new BitInputStream(in);
-            BitOutputStream outStream = new BitOutputStream(out);
-            return c.encode(inStream, outStream);
+            myViewer.showError("Compressed file has " + c.calculateDiff() +  " more bits than " +
+            "uncompressed file.\n Select \"force\" compression option to compress.");
+            return 0;
         }
-        return 0;
-        //throw new IOException("compress is not implemented");
-        //return 0;
+        // initializes input (read) and output (write) streams
+        BitInputStream inStream = new BitInputStream(in);
+        BitOutputStream outStream = new BitOutputStream(out);
+        // runs master compress method (which writes compressed data to a new file)
+        return c.encode(inStream, outStream);
     }
 
     /**
@@ -104,9 +95,13 @@ public class SimpleHuffProcessor implements IHuffProcessor {
      * writing to the output file.
      */
     public int uncompress(InputStream in, OutputStream out) throws IOException {
+        // initializes input (read) and output (write) streams
         BitInputStream inStream = new BitInputStream(in);
         BitOutputStream outStream = new BitOutputStream(out);
+
+        // checks if the first integer read is the magic number
         int magic = inStream.readBits(BITS_PER_INT);
+        // if not, show error and do not compress
         if (magic != MAGIC_NUMBER) {
             myViewer.showError("Error reading compressed file. \n" +
                     "File did not start with the huff magic number.");
@@ -114,26 +109,15 @@ public class SimpleHuffProcessor implements IHuffProcessor {
             outStream.close();
             return -1;
         }
-        d = new Decompressor(inStream, outStream);
-        // Main goal: rebuild huffman tree
-        // read information from compression and reconstruct huffman tree
-        // use 2 diff methods for Standard count header and Standard Tree Header
+        // initializes decompressor object
+        Decompressor d = new Decompressor(inStream, outStream);
+        // runs master decompress method (which writes decompressed data to a new file)
         int num = d.decode(inStream, outStream);
-        showString(d.printFreqMap());
-        showString("" + num);
         return num;
-        //throw new IOException("uncompress not implemented");
-        //return 0;
     }
 
     public void setViewer(IHuffViewer viewer) {
         myViewer = viewer;
-    }
-
-    private void showString(String s){
-        if (myViewer != null) {
-            myViewer.update(s);
-        }
     }
 }
 

@@ -2,6 +2,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.TreeMap;
 
+/**
+ * The Compressor class compresses a file into huffman encoding and writes the encoded information
+ * to a new file.
+ */
 public class Compressor extends HuffTree {
     private int[] myCounts;
     private int ogBitSize;
@@ -21,8 +25,8 @@ public class Compressor extends HuffTree {
     }
 
     /**
-     * Helper method for preprocessComplete. Counts frequencies for each char and stores in
-     * a HashMap passed by reference.
+     * Helps instantiate the frequency map by reading the bits a word at a time. It also 
+     * modifies the 256 long myCounts array which allows for easy STC formatting.
      */
     private int countFreqs(BitInputStream bis, TreeMap<Integer,Integer> freqMap,
                                                             int[] myCounts) throws IOException {
@@ -52,8 +56,8 @@ public class Compressor extends HuffTree {
     }
 
     /**
-     * Helper method for preprocessComplete. Iteratively creates the coding tree using
-     * Huffman encoding.
+     * Helps instantiate the root of the Huffman coding tree. Iteratively creates the coding tree 
+     * using Huffman encoding.
      */
     private TreeNode buildCodingTree() {
         // enqueue all elements into priority queue
@@ -90,6 +94,10 @@ public class Compressor extends HuffTree {
         return count;
     }
 
+    /**
+     * Returns the total number of bits from uncompressed file - the number of bits from compressed
+     * @return the diffference between the uncompressed and compressed size
+     */
     public int calculateDiff() {
         int compSize = 0;
         for (Integer val : freqMap.keySet()) {
@@ -108,33 +116,39 @@ public class Compressor extends HuffTree {
         return ogBitSize - compSize;
     }
 
-    public int getOGBitSize() {
-        return ogBitSize;
-    }
-
-    // FOR COMPRESSING
-
+    /**
+     * Writes the header content information for STC.
+     */
     private void encodeMap(BitOutputStream out) {
         for (int i = 0; i < ALPH_SIZE; i++) {
             out.writeBits(BITS_PER_INT, myCounts[i]);
         }
     }
 
+    /**
+     * Writes the header content information for STF.
+     */
     private void encodeTree(BitOutputStream out) {
+        // writes bitSize
         int bitSize = numLeaves * BITS_PER_TREE_LEAF + treeSize;
         out.writeBits(BITS_PER_INT, bitSize);
         ArrayList<TreeNode> preOrder = new ArrayList<>();
         preOrderTraversal(root, preOrder);
         for (TreeNode t : preOrder) {
+            // if internal node write 0
             if (t.getValue() == -1) {
                 out.writeBits(1, 0);
             } else {
+            // otherwise write 1 and the value
                 out.writeBits(1, 1);
                 out.writeBits(BITS_PER_WORD + 1, t.getValue());
             }
         }
     }
 
+    /**
+     * Helper method for encodeTree which performs preOrderTraversal over tree.
+     */
     private void preOrderTraversal(TreeNode node, ArrayList<TreeNode> result) {
         if (node != null) {
             result.add(node);
@@ -143,6 +157,14 @@ public class Compressor extends HuffTree {
         }
     }
 
+    /**
+     * Master method for compress. Writes the magic number, header type, header content, and 
+     * compressed data.
+     * @param inStream
+     * @param outStream
+     * @return the number of bits in encoded data
+     * @throws IOException
+     */
     public int encode(BitInputStream inStream, BitOutputStream outStream) throws IOException {
         // writes magic number indicating huffman file
         outStream.writeBits(BITS_PER_INT, MAGIC_NUMBER);
@@ -158,11 +180,14 @@ public class Compressor extends HuffTree {
         int totalBits = 0;
         int inbits = inStream.readBits(BITS_PER_WORD);
         while (inbits != -1) {
-            outStream.writeBits(codeMap.get(inbits).length(), Integer.parseInt(codeMap.get(inbits), 2));
+            // writes the tree traversal code
+            outStream.writeBits(codeMap.get(inbits).length(), 
+                                    Integer.parseInt(codeMap.get(inbits), 2));
             totalBits += codeMap.get(inbits).length();
             inbits = inStream.readBits(BITS_PER_WORD);
         }
-        outStream.writeBits(codeMap.get(PSEUDO_EOF).length(), Integer.parseInt(codeMap.get(PSEUDO_EOF), 2));
+        outStream.writeBits(codeMap.get(PSEUDO_EOF).length(), 
+                                Integer.parseInt(codeMap.get(PSEUDO_EOF), 2));
         // close streams
         inStream.close();
         outStream.close();

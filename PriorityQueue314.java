@@ -19,8 +19,12 @@
 import java.util.ArrayList;
 import java.util.NoSuchElementException;
 
+/**
+ * The PriorityQueue314 class is a queue that is able to sort elements in order by priority.
+ */
 public class PriorityQueue314<E extends Comparable<? super E>> {
-    private ArrayList<TreeNode> myCon;
+    
+    private ArrayList<E> myCon;
 
     public PriorityQueue314() {
         myCon = new ArrayList<>();
@@ -32,7 +36,7 @@ public class PriorityQueue314<E extends Comparable<? super E>> {
      * @param item item != null
      * @return true if myCon was modified, false otherwise
      */
-    public boolean enqueue(TreeNode item) {
+    public boolean enqueue(E item) {
         // check preconditions
         if (item == null) {
             throw new IllegalArgumentException("Item cannot be null");
@@ -47,10 +51,10 @@ public class PriorityQueue314<E extends Comparable<? super E>> {
      * Helper method for enqueue. Performs LINEAR search to find an
      * item in the priority queue.
      */
-    private int findPos(ArrayList<TreeNode> arr, TreeNode item) {
+    private int findPos(ArrayList<E> arr, E item) {
         // linear search
         for (int i = 0; i < arr.size(); i++) {
-            TreeNode curr = arr.get(i);
+            E curr = arr.get(i);
             // if curr freq is greater than item freq, add at that position
             if (curr.compareTo(item) > 0) {
                 return i;
@@ -65,7 +69,7 @@ public class PriorityQueue314<E extends Comparable<? super E>> {
      * pre: size() > 0
      * @return the TreeNode removed
      */
-    public TreeNode dequeue() {
+    public E dequeue() {
         // check preconditions
         if (size() == 0) {
             throw new NoSuchElementException("Priority queue is empty");

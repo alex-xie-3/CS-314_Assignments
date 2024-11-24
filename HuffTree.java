@@ -1,8 +1,14 @@
 import java.io.IOException;
 import java.util.TreeMap;
 
+/**
+ * The HuffTree class takes the similarities between Compressor and Decompressor and combines them
+ * into a superclass. (In hindsight, this superclass was completely useless. The only thing it 
+ * really did was allow me to call IHuffConstants without referencing the interface.)
+ */
 public class HuffTree implements IHuffConstants {
 
+    // instance variables are protected in order to retain visibility throughout subclasses
     protected int HEADER;
     protected TreeMap<Integer, Integer> freqMap; // maps ASCII of char to frequency
     protected PriorityQueue314<TreeNode> pq;
@@ -11,41 +17,19 @@ public class HuffTree implements IHuffConstants {
 
     protected final int BITS_PER_TREE_LEAF = 9;
 
-    public HuffTree(BitInputStream bis, BitOutputStream bos) throws IOException {
+    // Constructor intended for the Compressor subclass
+    public HuffTree(int HEADER, BitInputStream bis) throws IOException {
+        this.HEADER = HEADER;
         this.freqMap = new TreeMap<>();
         this.pq = new PriorityQueue314<>();
         this.codeMap = new TreeMap<>();
     }
 
-    public HuffTree(int HEADER, BitInputStream bis) throws IOException {
-        this.HEADER = HEADER;
+    // Constructor intended for the Decompressor subclass
+    public HuffTree(BitInputStream bis, BitOutputStream bos) throws IOException {
         this.freqMap = new TreeMap<>();
+        this.pq = new PriorityQueue314<>();
         this.codeMap = new TreeMap<>();
-    }
-
-    // FOR DEBUGGING
-
-    public String printFreqMap() {
-        StringBuilder s = new StringBuilder();
-        s.append("Frequency Table\n");
-        for (Integer i : freqMap.keySet()) {
-            s.append(i + " ");
-            s.append(Integer.toBinaryString(i) + " ");
-            s.append(Character.toString(i) + " ");
-            s.append(freqMap.get(i) + "\n");
-        }
-        return s.toString();
-    }
-
-    public String printCodeMap() {
-        StringBuilder s = new StringBuilder();
-        s.append("Code Map Table\n");
-        for (Integer i : codeMap.keySet()) {
-            s.append(i + " ");
-            s.append(Character.toString(i) + " ");
-            s.append(codeMap.get(i) + "\n");
-        }
-        return s.toString();
     }
 
 }
