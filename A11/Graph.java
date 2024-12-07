@@ -181,6 +181,7 @@ public class Graph {
 
     }
 
+
     /**
      * Find all weighted shortest paths from the Vertex startName
      * to all other vertices in this Graph using Dijkstra's algorithm. 
@@ -188,13 +189,51 @@ public class Graph {
      * After this method is called, call
      * the printPath(String) method to get the path from startNode
      * to any other vertex in this Graph.
-     * 
      * <br>pre: startName != null, containsVertex(startName) == true
      * @param startName The starting vertex. This method will find all the
      * weighted shortest paths from the given vertex to all other vertices
      * in the graph.
      */    
     public void dijkstra(String startName) {
+        // check preconditions and clear vertices
+        dijkstraPreconditions(startName);
+
+        // set start vertex
+        Vertex startVertex = vertices.get(startName);
+        currentStartVertexName = startName;
+        startVertex.weightedCostFromStartVertex = 0;
+
+        // create priority queue of paths for vertices worth visiting
+        PriorityQueue<Path> toVisit = new PriorityQueue<>();
+        // add start vertex as path
+        toVisit.add(new Path(startVertex, 0));
+
+        while (!toVisit.isEmpty()) {
+            Path currPath = toVisit.poll();
+            // set current vertex as visited
+            Vertex curr = currPath.dest;
+            curr.scratch = 1;
+
+            // loop through all edges
+            for (Edge adj : curr.adjacent) {
+                Vertex other = adj.dest;
+                // if not visited
+                if (other.scratch != 1) {
+                    double newCost = curr.weightedCostFromStartVertex + adj.cost;
+                    // check if newCost is cheaper than current cost
+                    if (newCost < other.weightedCostFromStartVertex) {
+                        // update vertex
+                        other.weightedCostFromStartVertex = newCost;
+                        other.numEdgesFromStartVertex++;
+                        other.prev = curr;
+                        toVisit.add(new Path(other, newCost));
+                    }
+                }
+            }
+        }
+    }
+
+    private void dijkstraPreconditions(String startName) {
         if (startName == null) {
             throw new IllegalArgumentException("Violation of precondition. " +
                             "Vertex name may not be null.");
@@ -202,8 +241,8 @@ public class Graph {
         if (!containsVertex(startName)) {
             throw new NoSuchElementException("No Vertex named " + startName + " exists in this Graph");
         }
-
-        // TODO CS314 Students, complete this method.
+        // reset all vertices and set start
+        clearAll();
     }
 
 
@@ -245,9 +284,45 @@ public class Graph {
      * weights for edges. All edge weights considered to be 1.)
      */
     public void findAllPaths(boolean weighted) {
-        // TODO CS314 Students, complete this method.
-    }
+        // create dummy path with length 0
+        longest = new Path(null, 0);
 
+        for (String currName : vertices.keySet()) {
+            Vertex curr = vertices.get(currName);
+            // RESET path info
+            curr.clearPathInfo();
+            // determine method to use based on weight
+            if (weighted) {
+                dijkstra(currName);
+            } else {
+                findUnweightedShortestPath(currName);
+            }
+
+            // loop through all other vertices
+            for (String otherName : vertices.keySet()) {
+                Vertex other = vertices.get(otherName);
+                // if vertex was visited
+                if (other.weightedCostFromStartVertex != INFINITY) {
+                    // set instance variables
+                    curr.numVertexConnected++;
+                    curr.totalUnweightedPathLength += other.numEdgesFromStartVertex;
+                    curr.totalWeightedPathLength += other.weightedCostFromStartVertex;
+
+                    // set longest path
+                    if (other.weightedCostFromStartVertex > longest.weightedCostOfPath) {
+                        longest = getPath(otherName);
+                    }
+                }
+            }
+            // set them equal if unweighted
+            if (!weighted) {
+                curr.totalWeightedPathLength = curr.totalUnweightedPathLength;
+            }
+            // remove double count 
+            curr.numVertexConnected--;
+        }
+        allPathsFound = true;
+    }
 
 
     /*
@@ -425,7 +500,7 @@ public class Graph {
      */
     public List<String> findPath(String destName) {
         if (currentStartVertexName == null) {
-            throw new IllegalStateException("method findUnweigthedShortesPath or dijkstra must be " +
+            throw new IllegalStateException("method findUnweightedShortestPath or dijkstra must be " +
                             "called before calling this method.");
         } else if (destName == null) {
             throw new IllegalArgumentException("Violation of precondition. " +

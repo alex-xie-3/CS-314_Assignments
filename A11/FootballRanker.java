@@ -87,7 +87,7 @@ public class FootballRanker {
     /**
      * Calculate top teams based solely on average path length of unweighted shortest paths.
      * @param showResults if this is true output results to standard output
-     * @return the root mean square error of the top 25 teams based on this calculation
+     * @return the mean square error of the top 25 teams based on this calculation
      * rounded to 1 decimal place.
      */
     public double doUnweighted(boolean showResults) {
@@ -157,7 +157,6 @@ public class FootballRanker {
     }
 
 
-
     /*
      * Calculate difference between predicted results based on graph and actual results of
      * poll data. return the root mean square error of difference between acutal poll results and
@@ -166,13 +165,45 @@ public class FootballRanker {
      */
     private double printRootMeanSquareError(List<String> humanRanks,
             TreeSet<AllPathsInfo> paths, boolean showResults) {
+        double sumOfSqDiff = 0;
         if (showResults) {
             System.out.println("\n\n ***** PREDICTED VS. ACTUAL RESULTS *****");
         }
+        // loop through all AP ranks and add the squared difference
+        for (int APRank = 0; APRank < humanRanks.size(); APRank++) {
+            sumOfSqDiff += sqDiff(APRank, humanRanks, paths, showResults);
+        }
+        // calculate exact RMSE
+        double rmse = Math.pow(sumOfSqDiff / humanRanks.size(), 0.5);
+        if (showResults) {
+            // print to 4 decimal places
+            System.out.printf("Root Mean Square Error: %.4f", rmse);
+        }
+        // return to 1 decimal place
+        return Math.round(rmse * 10.0) / 10.0;
+    }
 
-        // TODO CS314 Students, complete this method.
-
-        return 0;
+    // Helper method for printRootMeanSquareError. Determines the squared difference between 
+    // AP rank and predicted rank.
+    private double sqDiff(int APRank, List<String> humanRanks, TreeSet<AllPathsInfo> paths, 
+                                                                            boolean showResults) {
+        int predRank = 1;
+        int index = 1;
+        // loop through set until found
+        for (AllPathsInfo team : paths) {
+            if (team.getName().equals(humanRanks.get(APRank))) {
+                predRank = index;
+            }
+            index++;
+        }
+        // only print out if top 25 teams
+        if (showResults && APRank < 25) {
+            System.out.printf("%-" + PADDING + "s - actual rank: %d predicted rank: %d\n",
+                                    humanRanks.get(APRank), APRank + 1, predRank);
+        }
+        // account for indexing
+        int diff = APRank + 1 - predRank;
+        return Math.pow(diff, 2);
     }
 
 
